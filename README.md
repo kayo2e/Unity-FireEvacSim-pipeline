@@ -1,4 +1,4 @@
-# 🔥 Re-Filly: Stage 2 - Fire Evacuation Simulation
+# 🔥  Stage 2 - Fire Evacuation Simulation
 
 강화학습(PPO) 기반의 **지능형 유도등 제어**를 통한 화재 대피 최적화 시나리오 시뮬레이션입니다. 상상관 2층 구조를 그리드 맵으로 모델링하여 인원수 및 화재 상황별 대피 성능을 평가합니다.
 

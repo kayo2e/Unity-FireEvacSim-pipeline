@@ -554,7 +554,7 @@ def train(person_counts=(10, 30, 50), total_timesteps=500_000):
         model = PPO(
             "MlpPolicy",
             env,
-            device=device,  # 이 부분을 추가하세요
+            device=device,  
             verbose=0,
             n_steps=2048,
             batch_size=64,
