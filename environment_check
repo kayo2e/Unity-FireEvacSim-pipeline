@@ -1,5 +1,5 @@
 """
-Re-Filly | Stage 2: Evacuation Guidance RL Environment
+Stage 2: Evacuation Guidance RL Environment
 =======================================================
 에이전트  : 건물 내 각 셀의 유도등
 액션      : 각 유도등 방향 결정 (0=N, 1=S, 2=E, 3=W)
