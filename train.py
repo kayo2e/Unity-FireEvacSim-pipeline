@@ -87,6 +87,8 @@ BASE_GRID = np.array([
 ], dtype=np.int32)
 
 EXIT_POSITIONS = [(8, 11), (8, 12), (22, 8), (22, 9), (22, 10)]
+EXIT_A_POS = [(8, 11), (8, 12)]
+EXIT_B_POS = [(22, 8), (22, 9), (22, 10)]
 
 SCENARIO_CONFIGS = {
     1: {"name":"초기 화재",  "fire_count":(1,1),  "spread_prob":0.05, "smoke_radius":0, "exit_block_prob":0.0, "collapse_prob":0.0, "fire_fixed":[(3,1)], "max_steps":200},
@@ -137,12 +139,15 @@ class FireEvacEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, shape=(obs_size,), dtype=np.float32
         )
-        self.action_space = spaces.MultiDiscrete([4] * self.n_lights)
+        self.action_space = spaces.Discrete(3)  # 0: EXIT A, 1: EXIT B, 2: 화재 우회 (전체 출구)
 
-        self.grid = self.fire_map = self.smoke_map = None
+        self.grid = BASE_GRID.copy()  # 초기 grid 설정
+        self.fire_map = self.smoke_map = None
         self.people_data = self.light_dirs = self.blocked_exits = None
         self.step_count = self.escaped = self.dead = 0
         self._bfs_dist = None
+        self.strategy_dirs = np.zeros((3, self.n_lights), dtype=np.int32)
+        self._compute_strategy_dirs()
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -196,15 +201,15 @@ class FireEvacEnv(gym.Env):
             for pos in starts
         ]
 
-        self.light_dirs = np.random.randint(0, 4, size=self.n_lights)
+        self.light_dirs = self.strategy_dirs[2]  # 초기: 전체 출구 방향
         self.step_count = self.escaped = self.dead = 0
         return self._get_obs(), self._get_info()
 
     # ──────────────────────────────────────────
     # step: Q1 핵심 — EXIT 도달이 목표
     # ──────────────────────────────────────────
-    def step(self, action: np.ndarray):
-        self.light_dirs = np.array(action, dtype=np.int32)
+    def step(self, action: int):
+        self.light_dirs = self.strategy_dirs[action]
         self.step_count += 1
         reward = 0.0
 
@@ -321,6 +326,52 @@ class FireEvacEnv(gym.Env):
                     dist[nr, nc] = dist[r, c] + 1; q.append((nr, nc))
         mx = dist[dist < 9999].max() if (dist < 9999).any() else 1
         return np.clip(dist / mx, 0, 1)
+
+    def _compute_bfs_specific(self, exit_positions):
+        dist = np.full((self.ROWS, self.COLS), 9999.0)
+        q = deque()
+        for (r, c) in exit_positions:
+            if self.grid[r, c] == EXIT: dist[r, c] = 0; q.append((r, c))
+        while q:
+            r, c = q.popleft()
+            for dr, dc in DELTA.values():
+                nr, nc = r + dr, c + dc
+                if (0 <= nr < self.ROWS and 0 <= nc < self.COLS
+                        and dist[nr, nc] == 9999 and self.grid[nr, nc] in WALKABLE):
+                    dist[nr, nc] = dist[r, c] + 1; q.append((nr, nc))
+        return dist
+
+    def _bfs_best_from_dist(self, dist, r, c):
+        best, best_d = N, float("inf")
+        for d, (dr, dc) in DELTA.items():
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < self.ROWS and 0 <= nc < self.COLS:
+                v = dist[nr, nc]
+                if v < best_d: best_d, best = v, d
+        return best
+
+    def _compute_strategy_dirs(self):
+        # 전략 0: EXIT A
+        dist_a = self._compute_bfs_specific(EXIT_A_POS)
+        dirs_a = np.zeros(self.n_lights, dtype=np.int32)
+        for i, cell in enumerate(self.light_cells):
+            dirs_a[i] = self._bfs_best_from_dist(dist_a, cell[0], cell[1])
+
+        # 전략 1: EXIT B
+        dist_b = self._compute_bfs_specific(EXIT_B_POS)
+        dirs_b = np.zeros(self.n_lights, dtype=np.int32)
+        for i, cell in enumerate(self.light_cells):
+            dirs_b[i] = self._bfs_best_from_dist(dist_b, cell[0], cell[1])
+
+        # 전략 2: 전체 출구 (화재 우회)
+        dist_all = self._compute_bfs_specific(EXIT_POSITIONS)
+        dirs_all = np.zeros(self.n_lights, dtype=np.int32)
+        for i, cell in enumerate(self.light_cells):
+            dirs_all[i] = self._bfs_best_from_dist(dist_all, cell[0], cell[1])
+
+        self.strategy_dirs[0] = dirs_a
+        self.strategy_dirs[1] = dirs_b
+        self.strategy_dirs[2] = dirs_all
 
     def _get_walkable(self):
         return [(r, c) for r in range(self.ROWS) for c in range(self.COLS)
