@@ -568,7 +568,7 @@ def train_fire_evac(person_counts=(10, 30, 50), total_timesteps=500_000):
             device          = device,
             verbose         = 0,
             n_steps         = 2048,
-            batch_si      = 64,
+            batch_size      = 64,
             n_epochs        = 10,
             gamma           = 0.99,
             learning_rate   = 5e-4,    # ★ 3e-4 → 5e-4
