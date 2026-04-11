@@ -23,7 +23,7 @@ Grid 셀 값 (최소화):
 
 import cv2
 import numpy as np
-from skimage.morphology import skeletonize, thin
+from skimage.morphology import skeletonize
 import json
 import os
 
@@ -225,13 +225,7 @@ def skeletonize_walls(img_bgr: np.ndarray) -> np.ndarray:
 
     # Zhang-Suen 세선화 (skimage)
     bool_img = opened.astype(bool)
-    skel_zs  = skeletonize(bool_img)
-
-    # Lee 알고리즘 (thin) 보조 세선화
-    skel_lee = thin(bool_img)
-
-    # OR 결합
-    skel_combined = np.logical_or(skel_zs, skel_lee)
+    skel_combined = skeletonize(bool_img)
 
     # 연결요소 필터링 (3픽셀 이상)
     skel_uint8 = (skel_combined * 255).astype(np.uint8)
@@ -468,7 +462,16 @@ def run_pipeline(input_path: str, output_dir: str = SCRIPT_DIR) -> np.ndarray:
     img = cv2.imread(input_path)
     if img is None:
         raise FileNotFoundError(f"이미지를 찾을 수 없습니다: {input_path}")
-    print(f"  → shape: {img.shape}")
+    print(f"  → 원본 shape: {img.shape}")
+
+    # 처리 속도를 위해 최대 1200px로 리사이즈
+    MAX_DIM = 1200
+    h0, w0 = img.shape[:2]
+    if max(h0, w0) > MAX_DIM:
+        scale = MAX_DIM / max(h0, w0)
+        img = cv2.resize(img, (int(w0 * scale), int(h0 * scale)), interpolation=cv2.INTER_AREA)
+        print(f"  → 리사이즈 후 shape: {img.shape}")
+
     save_debug("step0_input.png", img)
 
     # Step 1: 피난평면도 추출
