@@ -563,7 +563,7 @@ def train_fire_evac(person_counts=(10, 30, 50), total_timesteps=500_000):
         callback = EvacTrainCallback(log_interval=10_000)
 
         model = PPO(
-            "CnnPolicy",
+            "MlpPolicy",
             env,
             device          = device,
             verbose         = 0,
