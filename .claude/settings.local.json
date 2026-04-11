@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python gridcell_extract.py)"
+      "Bash(python gridcell_extract.py)",
+      "Bash(python train.py --mode train --people 10 --steps 30000)"
     ]
   }
 }
