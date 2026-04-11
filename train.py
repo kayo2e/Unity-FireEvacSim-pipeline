@@ -324,8 +324,7 @@ class FireEvacEnv(gym.Env):
                 if (0 <= nr < self.ROWS and 0 <= nc < self.COLS
                         and dist[nr, nc] == 9999 and self.grid[nr, nc] in WALKABLE):
                     dist[nr, nc] = dist[r, c] + 1; q.append((nr, nc))
-        mx = dist[dist < 9999].max() if (dist < 9999).any() else 1
-        return np.clip(dist / mx, 0, 1)
+        return dist  # raw dist 반환
 
     def _compute_bfs_specific(self, exit_positions):
         dist = np.full((self.ROWS, self.COLS), 9999.0)
@@ -386,7 +385,9 @@ class FireEvacEnv(gym.Env):
         for p in self.people_data: obs[3, p["pos"][0], p["pos"][1]] += 1.0
         if obs[3].max() > 0: obs[3] /= obs[3].max()
         for i, (r, c) in enumerate(self.light_cells): obs[4, r, c] = self.light_dirs[i] / 3.0
-        obs[5] = 1.0 - self._bfs_dist
+        mx = self._bfs_dist[self._bfs_dist < 9999].max() if (self._bfs_dist < 9999).any() else 1
+        normalized_dist = np.clip(self._bfs_dist / mx, 0, 1)
+        obs[5] = 1.0 - normalized_dist
         return obs.flatten()  # ★ MlpPolicy를 위해 flatten
 
     def _get_info(self):
@@ -460,7 +461,8 @@ class EvacTrainCallback(BaseCallback):
     def _on_step(self):
         for info in self.locals.get("infos", []):
             if "survival_rate" in info: self.ep_survival.append(info["survival_rate"])
-            if "episode" in info: self.ep_rewards.append(info["episode"]["r"])
+        if self.locals.get("episode") is not None:
+            self.ep_rewards.append(self.locals["episode"]["r"])
         if self.num_timesteps % self.log_interval == 0 and self.ep_survival:
             n = min(len(self.ep_survival), 100)
             avg_s = sum(self.ep_survival[-n:]) / n
