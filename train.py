@@ -146,8 +146,7 @@ class FireEvacEnv(gym.Env):
         self.people_data = self.light_dirs = self.blocked_exits = None
         self.step_count = self.escaped = self.dead = 0
         self._bfs_dist = None
-        self.strategy_dirs = np.zeros((3, self.n_lights), dtype=np.int32)
-        self._compute_strategy_dirs()
+        self.current_strategy = 2  # 초기 전략
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -201,7 +200,7 @@ class FireEvacEnv(gym.Env):
             for pos in starts
         ]
 
-        self.light_dirs = self.strategy_dirs[2]  # 초기: 전체 출구 방향
+        self.light_dirs = self._compute_dirs_for_strategy(2)  # 초기: 전체 출구 방향
         self.step_count = self.escaped = self.dead = 0
         return self._get_obs(), self._get_info()
 
@@ -209,7 +208,7 @@ class FireEvacEnv(gym.Env):
     # step: Q1 핵심 — EXIT 도달이 목표
     # ──────────────────────────────────────────
     def step(self, action: int):
-        self.light_dirs = self.strategy_dirs[action]
+        self.light_dirs = self._compute_dirs_for_strategy(action)
         self.step_count += 1
         reward = 0.0
 
@@ -340,6 +339,30 @@ class FireEvacEnv(gym.Env):
                     dist[nr, nc] = dist[r, c] + 1; q.append((nr, nc))
         return dist
 
+    def _compute_bfs_with_risk(self, exit_positions):
+        """화재와 연기를 비용으로 반영한 BFS (Dijkstra-like)"""
+        import heapq
+        dist = np.full((self.ROWS, self.COLS), 9999.0)
+        q = []
+        for (r, c) in exit_positions:
+            if self.grid[r, c] == EXIT:
+                dist[r, c] = 0
+                heapq.heappush(q, (0, (r, c)))
+        while q:
+            cost, (r, c) = heapq.heappop(q)
+            if cost > dist[r, c]: continue
+            for dr, dc in DELTA.values():
+                nr, nc = r + dr, c + dc
+                if (0 <= nr < self.ROWS and 0 <= nc < self.COLS
+                        and self.grid[nr, nc] in WALKABLE):
+                    # 비용: 화재 10, 연기 5, 일반 1
+                    add_cost = 10 if self.fire_map[nr, nc] > 0 else 5 if self.smoke_map[nr, nc] > 0 else 1
+                    new_cost = cost + add_cost
+                    if new_cost < dist[nr, nc]:
+                        dist[nr, nc] = new_cost
+                        heapq.heappush(q, (new_cost, (nr, nc)))
+        return dist
+
     def _bfs_best_from_dist(self, dist, r, c):
         best, best_d = N, float("inf")
         for d, (dr, dc) in DELTA.items():
@@ -349,28 +372,19 @@ class FireEvacEnv(gym.Env):
                 if v < best_d: best_d, best = v, d
         return best
 
-    def _compute_strategy_dirs(self):
-        # 전략 0: EXIT A
-        dist_a = self._compute_bfs_specific(EXIT_A_POS)
-        dirs_a = np.zeros(self.n_lights, dtype=np.int32)
+    def _compute_dirs_for_strategy(self, strategy):
+        """전략에 따른 동적 유도등 방향 계산 (화재/연기 비용 반영)"""
+        if strategy == 0:
+            goals = EXIT_A_POS
+        elif strategy == 1:
+            goals = EXIT_B_POS
+        else:
+            goals = EXIT_POSITIONS
+        dist = self._compute_bfs_with_risk(goals)
+        dirs = np.zeros(self.n_lights, dtype=np.int32)
         for i, cell in enumerate(self.light_cells):
-            dirs_a[i] = self._bfs_best_from_dist(dist_a, cell[0], cell[1])
-
-        # 전략 1: EXIT B
-        dist_b = self._compute_bfs_specific(EXIT_B_POS)
-        dirs_b = np.zeros(self.n_lights, dtype=np.int32)
-        for i, cell in enumerate(self.light_cells):
-            dirs_b[i] = self._bfs_best_from_dist(dist_b, cell[0], cell[1])
-
-        # 전략 2: 전체 출구 (화재 우회)
-        dist_all = self._compute_bfs_specific(EXIT_POSITIONS)
-        dirs_all = np.zeros(self.n_lights, dtype=np.int32)
-        for i, cell in enumerate(self.light_cells):
-            dirs_all[i] = self._bfs_best_from_dist(dist_all, cell[0], cell[1])
-
-        self.strategy_dirs[0] = dirs_a
-        self.strategy_dirs[1] = dirs_b
-        self.strategy_dirs[2] = dirs_all
+            dirs[i] = self._bfs_best_from_dist(dist, cell[0], cell[1])
+        return dirs
 
     def _get_walkable(self):
         return [(r, c) for r in range(self.ROWS) for c in range(self.COLS)
