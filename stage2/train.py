@@ -20,10 +20,15 @@
 실행: python fire_evac_final.py --mode train
 """
 
+import sys
 import numpy as np
 import random
 from collections import deque
 from typing import Optional
+
+# Windows cp949 콘솔에서 UTF-8 출력 강제
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 import gymnasium as gym
 from gymnasium import spaces
