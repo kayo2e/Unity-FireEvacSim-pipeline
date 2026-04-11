@@ -484,14 +484,27 @@ class EvacTrainCallback(BaseCallback):
         super().__init__()
         self.log_interval = log_interval
         self.ep_rewards = []; self.ep_survival = []
+        self._cum_rewards = None  # 환경별 에피소드 누적 보상
 
     def _on_step(self):
+        rewards = self.locals["rewards"]
+        dones   = self.locals["dones"]
+
+        # 첫 스텝에서 환경 수만큼 누적 배열 초기화
+        if self._cum_rewards is None:
+            self._cum_rewards = np.zeros(len(rewards))
+
+        self._cum_rewards += rewards
+
+        for i, done in enumerate(dones):
+            if done:
+                self.ep_rewards.append(float(self._cum_rewards[i]))
+                self._cum_rewards[i] = 0.0
+
         for info in self.locals.get("infos", []):
             if "survival_rate" in info:
                 self.ep_survival.append(info["survival_rate"])
-            # VecNormalize가 보상을 정규화하므로 info에서 원본 보상 추출
-            if "episode" in info:
-                self.ep_rewards.append(info["episode"]["r"])
+
         if self.num_timesteps % self.log_interval == 0 and self.ep_survival:
             n = min(len(self.ep_survival), 100)
             avg_s = sum(self.ep_survival[-n:]) / n
@@ -541,7 +554,7 @@ def train_fire_evac(person_counts=(10, 30, 50), total_timesteps=300_000, n_envs=
         env_fns = [make_env(n_agents=n, seed=i) for i in range(n_envs)]
         raw_env = (DummyVecEnv(env_fns) if platform.system() == "Windows"
                    else SubprocVecEnv(env_fns))
-        vec_env = VecNormalize(raw_env, norm_obs=True, norm_reward=True, clip_obs=10.0)
+        vec_env = VecNormalize(raw_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
 
         callback = EvacTrainCallback(log_interval=10_000)
 
