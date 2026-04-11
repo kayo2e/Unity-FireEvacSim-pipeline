@@ -487,9 +487,11 @@ class EvacTrainCallback(BaseCallback):
 
     def _on_step(self):
         for info in self.locals.get("infos", []):
-            if "survival_rate" in info: self.ep_survival.append(info["survival_rate"])
-        if self.locals.get("episode") is not None:
-            self.ep_rewards.append(self.locals["episode"]["r"])
+            if "survival_rate" in info:
+                self.ep_survival.append(info["survival_rate"])
+            # VecNormalize가 보상을 정규화하므로 info에서 원본 보상 추출
+            if "episode" in info:
+                self.ep_rewards.append(info["episode"]["r"])
         if self.num_timesteps % self.log_interval == 0 and self.ep_survival:
             n = min(len(self.ep_survival), 100)
             avg_s = sum(self.ep_survival[-n:]) / n
