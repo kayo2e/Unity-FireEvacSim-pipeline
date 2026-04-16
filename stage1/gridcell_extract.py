@@ -24,6 +24,9 @@ Grid 셀 값 (최소화):
 import cv2
 import numpy as np
 from skimage.morphology import skeletonize
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import json
 import os
 
@@ -42,6 +45,13 @@ CELL_STAIR     = 3   # 계단 (이동 가능, 비용 높음)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEBUG_DIR = os.path.join(SCRIPT_DIR, "debug_steps")
 os.makedirs(DEBUG_DIR, exist_ok=True)
+
+# Hyperparameters
+SEGMENTATION_INPUT_SIZE = (512, 512)
+SEGMENTATION_THRESHOLD = 0.5
+FGSS_WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "fgssnet_weights.pth")
+WALL_PROXIMITY_THRESHOLD = 8
+DENSITY_COST_SCALE = 2.0
 
 
 # ──────────────────────────────────────────────
@@ -199,8 +209,135 @@ def remove_text(img_bgr: np.ndarray, wall_mask: np.ndarray) -> np.ndarray:
 
 
 # ──────────────────────────────────────────────
-# Step 4: 세선화 및 선 굵기 일반화
+# Step 4: FGSSNet 기반 벽체 세그멘테이션
 # ──────────────────────────────────────────────
+class DoubleConv(nn.Module):
+    def __init__(self, in_ch, out_ch):
+        super().__init__()
+        self.double_conv = nn.Sequential(
+            nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(out_ch),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(out_ch),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x):
+        return self.double_conv(x)
+
+
+class Down(nn.Module):
+    def __init__(self, in_ch, out_ch):
+        super().__init__()
+        self.maxpool_conv = nn.Sequential(
+            nn.MaxPool2d(2),
+            DoubleConv(in_ch, out_ch),
+        )
+
+    def forward(self, x):
+        return self.maxpool_conv(x)
+
+
+class Up(nn.Module):
+    def __init__(self, in_ch, out_ch):
+        super().__init__()
+        self.up = nn.ConvTranspose2d(in_ch, out_ch, kernel_size=2, stride=2)
+        self.conv = DoubleConv(in_ch, out_ch)
+
+    def forward(self, x1, x2):
+        x1 = self.up(x1)
+        diffY = x2.size()[2] - x1.size()[2]
+        diffX = x2.size()[3] - x1.size()[3]
+        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
+                        diffY // 2, diffY - diffY // 2])
+        x = torch.cat([x2, x1], dim=1)
+        return self.conv(x)
+
+
+class FeatureGuideEncoder(nn.Module):
+    def __init__(self, in_ch=1, guide_dim=64):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            DoubleConv(in_ch, 32),
+            nn.MaxPool2d(2),
+            DoubleConv(32, 64),
+            nn.AdaptiveAvgPool2d(1),
+        )
+        self.fc = nn.Linear(64, guide_dim)
+
+    def forward(self, x):
+        x = self.encoder(x)
+        x = x.view(x.size(0), -1)
+        return self.fc(x)
+
+
+class FGSSNet(nn.Module):
+    def __init__(self, in_ch=3, guide_dim=64, base_ch=32):
+        super().__init__()
+        self.inc = DoubleConv(in_ch, base_ch)
+        self.down1 = Down(base_ch, base_ch * 2)
+        self.down2 = Down(base_ch * 2, base_ch * 4)
+        self.down3 = Down(base_ch * 4, base_ch * 8)
+        self.guidance_proj = nn.Linear(guide_dim, base_ch * 8)
+        self.up1 = Up(base_ch * 8, base_ch * 4)
+        self.up2 = Up(base_ch * 4, base_ch * 2)
+        self.up3 = Up(base_ch * 2, base_ch)
+        self.outc = nn.Conv2d(base_ch, 1, kernel_size=1)
+        self.guidance_encoder = FeatureGuideEncoder(in_ch=1, guide_dim=guide_dim)
+
+    def forward(self, x, guide):
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+
+        guide_feat = self.guidance_proj(guide).view(-1, x4.size(1), 1, 1)
+        x4 = x4 + guide_feat
+
+        x = self.up1(x4, x3)
+        x = self.up2(x, x2)
+        x = self.up3(x, x1)
+        return torch.sigmoid(self.outc(x))
+
+
+def load_fgssnet_model(device: str = "cpu") -> FGSSNet:
+    model = FGSSNet().to(device)
+    if os.path.exists(FGSS_WEIGHTS_PATH):
+        try:
+            model.load_state_dict(torch.load(FGSS_WEIGHTS_PATH, map_location=device))
+            print(f"  [Step 4] FGSSNet weights loaded from {FGSS_WEIGHTS_PATH}")
+        except Exception as e:
+            print(f"  [Step 4] FGSSNet weight load failed: {e}. using random weights.")
+    else:
+        print("  [Step 4] FGSSNet weights not found, using untrained model as fallback.")
+    model.eval()
+    return model
+
+
+def segment_walls_fgssnet(img_bgr: np.ndarray, model: FGSSNet, device: str = "cpu") -> np.ndarray:
+    print("[Step 4] FGSSNet 벽체 세그멘테이션")
+    h, w = img_bgr.shape[:2]
+    resized = cv2.resize(img_bgr, SEGMENTATION_INPUT_SIZE, interpolation=cv2.INTER_AREA)
+    img_tensor = torch.from_numpy(resized.astype(np.float32) / 255.0).permute(2, 0, 1).unsqueeze(0).to(device)
+
+    gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+    patch = cv2.resize(gray, (128, 128), interpolation=cv2.INTER_AREA)
+    patch_tensor = torch.from_numpy(patch.astype(np.float32) / 255.0).unsqueeze(0).unsqueeze(0).to(device)
+
+    with torch.no_grad():
+        guide = model.guidance_encoder(patch_tensor)
+        prob = model(img_tensor, guide).squeeze().cpu().numpy()
+
+    prob = cv2.resize(prob, (w, h), interpolation=cv2.INTER_LINEAR)
+    prob_img = (prob * 255).astype(np.uint8)
+    mask = (prob > SEGMENTATION_THRESHOLD).astype(np.uint8) * 255
+
+    save_debug("step4_fgssnet_prob.png", prob_img)
+    save_debug("step4_fgssnet_mask.png", mask)
+    return mask
+
+
 def skeletonize_walls(img_bgr: np.ndarray) -> np.ndarray:
     """
     논문 §III-4-3: Zhang-Suen + Lee + HoughLinesP 세선화.
@@ -326,14 +463,14 @@ def detect_facilities_rule_based(img_bgr: np.ndarray) -> dict:
 # Step 6: Grid Map 변환
 # ──────────────────────────────────────────────
 def build_grid_map(
-    skeleton: np.ndarray,
+    wall_mask: np.ndarray,
     img_bgr:  np.ndarray,
     facilities: dict,
     rows: int = GRID_ROWS,
     cols: int = GRID_COLS,
 ) -> np.ndarray:
     """
-    세선화된 벽체 이미지 + 시설 위치 → rows×cols Grid Map.
+    벽체 마스크 + 시설 위치 → rows×cols Grid Map.
 
     알고리즘:
     1. 모든 셀을 1(이동 불가)로 초기화.
@@ -369,12 +506,12 @@ def build_grid_map(
             y1 = int(r * cell_h);  y2 = int((r+1) * cell_h)
             x1 = int(c * cell_w);  x2 = int((c+1) * cell_w)
 
-            cell_skel    = skeleton[y1:y2, x1:x2]
+            cell_wall    = wall_mask[y1:y2, x1:x2]
             cell_building= building_mask[y1:y2, x1:x2]
-            cell_pixels  = cell_skel.size
+            cell_pixels  = cell_wall.size
 
             inside_ratio = np.sum(cell_building > 0) / (cell_pixels + 1e-6)
-            wall_ratio   = np.sum(cell_skel > 0) / (cell_pixels + 1e-6)
+            wall_ratio   = np.sum(cell_wall > 0) / (cell_pixels + 1e-6)
 
             if inside_ratio > inside_thresh:
                 grid[r, c] = CELL_PASSABLE   # 건물 내부 = 이동 가능
@@ -394,6 +531,22 @@ def build_grid_map(
     place_facility(facilities["elevators"],     CELL_WALL)      # 엘리베이터 → 이동 불가
     place_facility(facilities["toilets"],       CELL_PASSABLE)  # 화장실 → 이동 가능
     place_facility(facilities["stairs"],        CELL_STAIR)     # 계단 → 비용 높은 이동 가능
+
+    # 벽과의 거리 정보로 세로/좁은 통로 가중치 부여
+    wall_binary = (wall_mask > 0).astype(np.uint8)
+    dt = cv2.distanceTransform(255 - wall_binary * 255, cv2.DIST_L2, 5)
+    cell_dist = np.zeros((rows, cols), dtype=np.float32)
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r, c] == CELL_PASSABLE:
+                y1 = int(r * cell_h);  y2 = int((r+1) * cell_h)
+                x1 = int(c * cell_w);  x2 = int((c+1) * cell_w)
+                cell_dist[r, c] = np.mean(dt[y1:y2, x1:x2])
+
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r, c] == CELL_PASSABLE and cell_dist[r, c] < WALL_PROXIMITY_THRESHOLD:
+                grid[r, c] = CELL_STAIR
 
     print(f"  → Grid {rows}×{cols} 생성 완료")
     unique, counts = np.unique(grid, return_counts=True)
@@ -476,6 +629,7 @@ def run_pipeline(input_path: str, output_dir: str = SCRIPT_DIR) -> np.ndarray:
 
     # Step 1: 피난평면도 추출
     floor_plan = extract_floor_plan(img)
+    save_debug("step0_cropped.png", floor_plan)
 
     # Step 2: 불필요 요소 제거
     cleaned, wall_mask = remove_unnecessary_elements(floor_plan)
@@ -483,14 +637,17 @@ def run_pipeline(input_path: str, output_dir: str = SCRIPT_DIR) -> np.ndarray:
     # Step 3: 텍스트 제거
     text_removed = remove_text(cleaned, wall_mask)
 
-    # Step 4: 세선화
-    skeleton = skeletonize_walls(text_removed)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = load_fgssnet_model(device=device)
+
+    # Step 4: FGSSNet 벽체 세그멘테이션
+    wall_mask = segment_walls_fgssnet(text_removed, model, device=device)
 
     # Step 5: 시설 탐지 (floor_plan 원본 컬러 사용)
     facilities = detect_facilities_rule_based(floor_plan)
 
     # Step 6: Grid Map
-    grid = build_grid_map(skeleton, floor_plan, facilities)
+    grid = build_grid_map(wall_mask, floor_plan, facilities)
 
     # 결과 저장
     grid_path = os.path.join(output_dir, "grid_map.npy")
@@ -521,7 +678,7 @@ def run_pipeline(input_path: str, output_dir: str = SCRIPT_DIR) -> np.ndarray:
     # 파이프라인 비교 이미지 (Step0 → Step4 → Grid 나란히)
     step0 = cv2.imread(os.path.join(DEBUG_DIR, "step0_input.png"))
     step1 = cv2.imread(os.path.join(DEBUG_DIR, "step1_floor_plan_crop.png"))
-    step4 = cv2.imread(os.path.join(DEBUG_DIR, "step4_skeleton.png"))
+    step4 = cv2.imread(os.path.join(DEBUG_DIR, "step4_fgssnet_mask.png"))
     if step4 is not None and step4.ndim == 2:
         step4 = cv2.cvtColor(step4, cv2.COLOR_GRAY2BGR)
     elif step4 is None:
