@@ -99,7 +99,7 @@ SCENARIO_CONFIGS = {
     1: {"name":"초기 화재",  "fire_count":(1,1),  "spread_prob":0.05, "smoke_radius":0, "exit_block_prob":0.0, "collapse_prob":0.0, "fire_fixed":[(3,1)],   "max_steps":200},
     2: {"name":"화재 확산",  "fire_count":(2,3),  "spread_prob":0.12, "smoke_radius":2, "exit_block_prob":0.0, "collapse_prob":0.0, "fire_fixed":None,     "max_steps":250},
     3: {"name":"출구 위협",  "fire_count":(1,1),  "spread_prob":0.25, "smoke_radius":4, "exit_block_prob":0.0, "collapse_prob":0.0, "fire_fixed":[(8,10)], "max_steps":350},
-    4: {"name":"폭발 붕괴",  "fire_count":(3,6),  "spread_prob":0.20, "smoke_radius":4, "exit_block_prob":0.3, "collapse_prob":0.3, "fire_fixed":None,     "max_steps":400},
+    4: {"name":"폭발 붕괴",  "fire_count":(3,6),  "spread_prob":0.20, "smoke_radius":4, "exit_block_prob":0.3, "collapse_prob":0.3, "fire_fixed":None,     "max_steps":600},
 }
 
 
@@ -144,7 +144,14 @@ class FireEvacEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, shape=(obs_size,), dtype=np.float32
         )
-        self.action_space = spaces.Box(low=5.0, high=50.0, shape=(1,), dtype=np.float32)  # fire_cost_weight: 5.0 ~ 50.0
+        # [액션 확장] exit_A_cost, exit_B_cost, crowd_weight
+        # - exit_A/B_cost: 해당 출구 경로의 화재 회피 강도 (값 클수록 우회)
+        # - crowd_weight: 밀도 패널티 강도 (값 클수록 분산 유도)
+        self.action_space = spaces.Box(
+            low=np.array( [5.0,  5.0,  0.5]),
+            high=np.array([50.0, 50.0, 5.0]),
+            shape=(3,), dtype=np.float32
+        )
 
         self.grid = BASE_GRID.copy()  # 초기 grid 설정
         self.fire_map = self.smoke_map = None
@@ -205,7 +212,7 @@ class FireEvacEnv(gym.Env):
             for pos in starts
         ]
 
-        self.light_dirs = self._compute_dirs_for_strategy(10.0)  # 초기 fire_cost=10.0
+        self.light_dirs = self._compute_dirs_for_strategy(10.0, 10.0, 2.0)  # 초기값
         self.prev_fire_map = self.fire_map.copy()  # 초기 화재 상태 저장
         self.step_count = self.escaped = self.dead = 0
         return self._get_obs(), self._get_info()
@@ -214,8 +221,10 @@ class FireEvacEnv(gym.Env):
     # step: Q1 핵심 — EXIT 도달이 목표
     # ──────────────────────────────────────────
     def step(self, action: np.ndarray):
-        fire_cost = float(action[0])
-        self.light_dirs = self._compute_dirs_for_strategy(fire_cost)
+        exit_a_cost  = float(action[0])
+        exit_b_cost  = float(action[1])
+        crowd_weight = float(action[2])
+        self.light_dirs = self._compute_dirs_for_strategy(exit_a_cost, exit_b_cost, crowd_weight)
         self.step_count += 1
         reward = 0.0
 
@@ -255,9 +264,13 @@ class FireEvacEnv(gym.Env):
         self._spread_fire()
         self._spread_smoke()
 
-        # 동적 최적화: 화재가 변했으면 유도등 방향 재계산
+        # 동적 최적화: 화재가 변했으면 유도등 방향 + shaping 거리 동시 재계산
         if self.prev_fire_map is None or not np.array_equal(self.fire_map, self.prev_fire_map):
-            self.light_dirs = self._compute_dirs_for_strategy(fire_cost)
+            self.light_dirs  = self._compute_dirs_for_strategy(exit_a_cost, exit_b_cost, crowd_weight)
+            self._bfs_dist   = self._compute_bfs_fire_aware()   # shaping reward용 거리 갱신
+            # 생존 인원의 prev_dist를 새 거리로 동기화 (부호 역전 방지)
+            for p in self.people_data:
+                p["prev_dist"] = float(self._bfs_dist[p["pos"][0], p["pos"][1]])
             self.prev_fire_map = self.fire_map.copy()
 
         alive = []
@@ -341,6 +354,24 @@ class FireEvacEnv(gym.Env):
                     dist[nr, nc] = dist[r, c] + 1; q.append((nr, nc))
         return dist  # raw dist 반환
 
+    def _compute_bfs_fire_aware(self):
+        """화재 셀을 벽으로 처리한 BFS — shaping reward용 동적 거리"""
+        dist = np.full((self.ROWS, self.COLS), 9999.0)
+        q = deque()
+        for (r, c) in EXIT_POSITIONS:
+            if self.grid[r, c] == EXIT and (r, c) not in self.blocked_exits:
+                dist[r, c] = 0; q.append((r, c))
+        while q:
+            r, c = q.popleft()
+            for dr, dc in DELTA.values():
+                nr, nc = r + dr, c + dc
+                if (0 <= nr < self.ROWS and 0 <= nc < self.COLS
+                        and dist[nr, nc] == 9999
+                        and self.grid[nr, nc] in WALKABLE
+                        and self.fire_map[nr, nc] == 0):   # 화재 셀 통과 불가
+                    dist[nr, nc] = dist[r, c] + 1; q.append((nr, nc))
+        return dist
+
     def _compute_bfs_specific(self, exit_positions):
         dist = np.full((self.ROWS, self.COLS), 9999.0)
         q = deque()
@@ -355,8 +386,8 @@ class FireEvacEnv(gym.Env):
                     dist[nr, nc] = dist[r, c] + 1; q.append((nr, nc))
         return dist
 
-    def _compute_bfs_with_risk(self, exit_positions, fire_cost=10.0):
-        """화재와 연기를 비용으로 반영한 BFS (Dijkstra-like) + 밀도 비용"""
+    def _compute_bfs_with_risk(self, exit_positions, fire_cost=10.0, crowd_weight=2.0):
+        """화재/연기/밀도 비용을 반영한 Dijkstra BFS"""
         import heapq
         dist = np.full((self.ROWS, self.COLS), 9999.0)
         q = []
@@ -371,12 +402,9 @@ class FireEvacEnv(gym.Env):
                 nr, nc = r + dr, c + dc
                 if (0 <= nr < self.ROWS and 0 <= nc < self.COLS
                         and self.grid[nr, nc] in WALKABLE):
-                    # 비용: 화재 fire_cost, 연기 5, 일반 1 + 밀도 비용
                     base_cost = fire_cost if self.fire_map[nr, nc] > 0 else 5 if self.smoke_map[nr, nc] > 0 else 1
-                    # 밀도 비용: 사람이 많을수록 추가 비용 (bottleneck 방지)
                     density = sum(1 for p in self.people_data if p["pos"] == (nr, nc))
-                    crowded_cost = density * 2.0  # 밀도당 추가 비용
-                    add_cost = base_cost + crowded_cost
+                    add_cost = base_cost + density * crowd_weight
                     new_cost = cost + add_cost
                     if new_cost < dist[nr, nc]:
                         dist[nr, nc] = new_cost
@@ -392,13 +420,15 @@ class FireEvacEnv(gym.Env):
                 if v < best_d: best_d, best = v, d
         return best
 
-    def _compute_dirs_for_strategy(self, fire_cost):
-        """동적 유도등 방향 계산 (화재 비용 연속 조절 + 밀도 비용)"""
-        goals = EXIT_POSITIONS
-        dist = self._compute_bfs_with_risk(goals, fire_cost)
+    def _compute_dirs_for_strategy(self, exit_a_cost, exit_b_cost, crowd_weight):
+        """출구별 독립 비용으로 Dijkstra 2회 실행 후 셀마다 더 저렴한 출구 방향 선택"""
+        dist_a = self._compute_bfs_with_risk(EXIT_A_POS, exit_a_cost, crowd_weight)
+        dist_b = self._compute_bfs_with_risk(EXIT_B_POS, exit_b_cost, crowd_weight)
+        # 셀마다 두 출구 중 비용이 낮은 쪽 방향을 선택
+        dist_combined = np.minimum(dist_a, dist_b)
         dirs = np.zeros(self.n_lights, dtype=np.int32)
         for i, cell in enumerate(self.light_cells):
-            dirs[i] = self._bfs_best_from_dist(dist, cell[0], cell[1])
+            dirs[i] = self._bfs_best_from_dist(dist_combined, cell[0], cell[1])
         return dirs
 
     def _get_walkable(self):
