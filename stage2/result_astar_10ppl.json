@@ -1,0 +1,3617 @@
+{
+  "strategy": "A* (Manhattan)",
+  "n_agents": 10,
+  "n_episodes": 100,
+  "fire_cost": 20.0,
+  "heuristic_weight": 0.5,
+  "results": {
+    "1": [
+      {
+        "episode": 0,
+        "seed": 1,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 24,
+        "reward": 322.0
+      },
+      {
+        "episode": 1,
+        "seed": 101,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 300.0
+      },
+      {
+        "episode": 2,
+        "seed": 201,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 13,
+        "reward": 294.0
+      },
+      {
+        "episode": 3,
+        "seed": 301,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 344.0
+      },
+      {
+        "episode": 4,
+        "seed": 401,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 12,
+        "reward": 310.0
+      },
+      {
+        "episode": 5,
+        "seed": 501,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 28,
+        "reward": 336.0
+      },
+      {
+        "episode": 6,
+        "seed": 601,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 330.0
+      },
+      {
+        "episode": 7,
+        "seed": 701,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 27,
+        "reward": 306.0
+      },
+      {
+        "episode": 8,
+        "seed": 801,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 300.0
+      },
+      {
+        "episode": 9,
+        "seed": 901,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 306.0
+      },
+      {
+        "episode": 10,
+        "seed": 1001,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 310.0
+      },
+      {
+        "episode": 11,
+        "seed": 1101,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 314.0
+      },
+      {
+        "episode": 12,
+        "seed": 1201,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 292.0
+      },
+      {
+        "episode": 13,
+        "seed": 1301,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 332.0
+      },
+      {
+        "episode": 14,
+        "seed": 1401,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 332.0
+      },
+      {
+        "episode": 15,
+        "seed": 1501,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 358.0
+      },
+      {
+        "episode": 16,
+        "seed": 1601,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 318.0
+      },
+      {
+        "episode": 17,
+        "seed": 1701,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 328.0
+      },
+      {
+        "episode": 18,
+        "seed": 1801,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 13,
+        "reward": 308.0
+      },
+      {
+        "episode": 19,
+        "seed": 1901,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 21,
+        "reward": 350.0
+      },
+      {
+        "episode": 20,
+        "seed": 2001,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 336.0
+      },
+      {
+        "episode": 21,
+        "seed": 2101,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 344.0
+      },
+      {
+        "episode": 22,
+        "seed": 2201,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 320.0
+      },
+      {
+        "episode": 23,
+        "seed": 2301,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 330.0
+      },
+      {
+        "episode": 24,
+        "seed": 2401,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 21,
+        "reward": 316.0
+      },
+      {
+        "episode": 25,
+        "seed": 2501,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 314.0
+      },
+      {
+        "episode": 26,
+        "seed": 2601,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 316.0
+      },
+      {
+        "episode": 27,
+        "seed": 2701,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 348.0
+      },
+      {
+        "episode": 28,
+        "seed": 2801,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 23,
+        "reward": 326.0
+      },
+      {
+        "episode": 29,
+        "seed": 2901,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 330.0
+      },
+      {
+        "episode": 30,
+        "seed": 3001,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 330.0
+      },
+      {
+        "episode": 31,
+        "seed": 3101,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 14,
+        "reward": 326.0
+      },
+      {
+        "episode": 32,
+        "seed": 3201,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 23,
+        "reward": 330.0
+      },
+      {
+        "episode": 33,
+        "seed": 3301,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 21,
+        "reward": 326.0
+      },
+      {
+        "episode": 34,
+        "seed": 3401,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 318.0
+      },
+      {
+        "episode": 35,
+        "seed": 3501,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 314.0
+      },
+      {
+        "episode": 36,
+        "seed": 3601,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 344.0
+      },
+      {
+        "episode": 37,
+        "seed": 3701,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 362.0
+      },
+      {
+        "episode": 38,
+        "seed": 3801,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 350.0
+      },
+      {
+        "episode": 39,
+        "seed": 3901,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 12,
+        "reward": 316.0
+      },
+      {
+        "episode": 40,
+        "seed": 4001,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 300.0
+      },
+      {
+        "episode": 41,
+        "seed": 4101,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 24,
+        "reward": 390.0
+      },
+      {
+        "episode": 42,
+        "seed": 4201,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 366.0
+      },
+      {
+        "episode": 43,
+        "seed": 4301,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 324.0
+      },
+      {
+        "episode": 44,
+        "seed": 4401,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 14,
+        "reward": 310.0
+      },
+      {
+        "episode": 45,
+        "seed": 4501,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 326.0
+      },
+      {
+        "episode": 46,
+        "seed": 4601,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 338.0
+      },
+      {
+        "episode": 47,
+        "seed": 4701,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 334.0
+      },
+      {
+        "episode": 48,
+        "seed": 4801,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 23,
+        "reward": 336.0
+      },
+      {
+        "episode": 49,
+        "seed": 4901,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 23,
+        "reward": 306.0
+      },
+      {
+        "episode": 50,
+        "seed": 5001,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 370.0
+      },
+      {
+        "episode": 51,
+        "seed": 5101,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 14,
+        "reward": 298.0
+      },
+      {
+        "episode": 52,
+        "seed": 5201,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 354.0
+      },
+      {
+        "episode": 53,
+        "seed": 5301,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 13,
+        "reward": 292.0
+      },
+      {
+        "episode": 54,
+        "seed": 5401,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 330.0
+      },
+      {
+        "episode": 55,
+        "seed": 5501,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 332.0
+      },
+      {
+        "episode": 56,
+        "seed": 5601,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 348.0
+      },
+      {
+        "episode": 57,
+        "seed": 5701,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 336.0
+      },
+      {
+        "episode": 58,
+        "seed": 5801,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 13,
+        "reward": 300.0
+      },
+      {
+        "episode": 59,
+        "seed": 5901,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 34,
+        "reward": 356.0
+      },
+      {
+        "episode": 60,
+        "seed": 6001,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 358.0
+      },
+      {
+        "episode": 61,
+        "seed": 6101,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 12,
+        "reward": 288.0
+      },
+      {
+        "episode": 62,
+        "seed": 6201,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 14,
+        "reward": 288.0
+      },
+      {
+        "episode": 63,
+        "seed": 6301,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 13,
+        "reward": 322.0
+      },
+      {
+        "episode": 64,
+        "seed": 6401,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 13,
+        "reward": 320.0
+      },
+      {
+        "episode": 65,
+        "seed": 6501,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 296.0
+      },
+      {
+        "episode": 66,
+        "seed": 6601,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 320.0
+      },
+      {
+        "episode": 67,
+        "seed": 6701,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 328.0
+      },
+      {
+        "episode": 68,
+        "seed": 6801,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 308.0
+      },
+      {
+        "episode": 69,
+        "seed": 6901,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 23,
+        "reward": 342.0
+      },
+      {
+        "episode": 70,
+        "seed": 7001,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 310.0
+      },
+      {
+        "episode": 71,
+        "seed": 7101,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 342.0
+      },
+      {
+        "episode": 72,
+        "seed": 7201,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 28,
+        "reward": 362.0
+      },
+      {
+        "episode": 73,
+        "seed": 7301,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 318.0
+      },
+      {
+        "episode": 74,
+        "seed": 7401,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 24,
+        "reward": 342.0
+      },
+      {
+        "episode": 75,
+        "seed": 7501,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 326.0
+      },
+      {
+        "episode": 76,
+        "seed": 7601,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 31,
+        "reward": 384.0
+      },
+      {
+        "episode": 77,
+        "seed": 7701,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 334.0
+      },
+      {
+        "episode": 78,
+        "seed": 7801,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 21,
+        "reward": 306.0
+      },
+      {
+        "episode": 79,
+        "seed": 7901,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 340.0
+      },
+      {
+        "episode": 80,
+        "seed": 8001,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 340.0
+      },
+      {
+        "episode": 81,
+        "seed": 8101,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 320.0
+      },
+      {
+        "episode": 82,
+        "seed": 8201,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 29,
+        "reward": 346.0
+      },
+      {
+        "episode": 83,
+        "seed": 8301,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 318.0
+      },
+      {
+        "episode": 84,
+        "seed": 8401,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 336.0
+      },
+      {
+        "episode": 85,
+        "seed": 8501,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 25,
+        "reward": 336.0
+      },
+      {
+        "episode": 86,
+        "seed": 8601,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 336.0
+      },
+      {
+        "episode": 87,
+        "seed": 8701,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 306.0
+      },
+      {
+        "episode": 88,
+        "seed": 8801,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 30,
+        "reward": 358.0
+      },
+      {
+        "episode": 89,
+        "seed": 8901,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 24,
+        "reward": 326.0
+      },
+      {
+        "episode": 90,
+        "seed": 9001,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 352.0
+      },
+      {
+        "episode": 91,
+        "seed": 9101,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 31,
+        "reward": 352.0
+      },
+      {
+        "episode": 92,
+        "seed": 9201,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 26,
+        "reward": 370.0
+      },
+      {
+        "episode": 93,
+        "seed": 9301,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 290.0
+      },
+      {
+        "episode": 94,
+        "seed": 9401,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 14,
+        "reward": 316.0
+      },
+      {
+        "episode": 95,
+        "seed": 9501,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 24,
+        "reward": 384.0
+      },
+      {
+        "episode": 96,
+        "seed": 9601,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 312.0
+      },
+      {
+        "episode": 97,
+        "seed": 9701,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 336.0
+      },
+      {
+        "episode": 98,
+        "seed": 9801,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 310.0
+      },
+      {
+        "episode": 99,
+        "seed": 9901,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 14,
+        "reward": 312.0
+      }
+    ],
+    "2": [
+      {
+        "episode": 0,
+        "seed": 2,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 17,
+        "reward": 286.0
+      },
+      {
+        "episode": 1,
+        "seed": 102,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 22,
+        "reward": 284.0
+      },
+      {
+        "episode": 2,
+        "seed": 202,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 22,
+        "reward": 252.0
+      },
+      {
+        "episode": 3,
+        "seed": 302,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 36,
+        "reward": 222.0
+      },
+      {
+        "episode": 4,
+        "seed": 402,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 30,
+        "reward": 240.0
+      },
+      {
+        "episode": 5,
+        "seed": 502,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 336.0
+      },
+      {
+        "episode": 6,
+        "seed": 602,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 304.0
+      },
+      {
+        "episode": 7,
+        "seed": 702,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 330.0
+      },
+      {
+        "episode": 8,
+        "seed": 802,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 312.0
+      },
+      {
+        "episode": 9,
+        "seed": 902,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 26,
+        "reward": 364.0
+      },
+      {
+        "episode": 10,
+        "seed": 1002,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 19,
+        "reward": 232.0
+      },
+      {
+        "episode": 11,
+        "seed": 1102,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 34,
+        "reward": 248.0
+      },
+      {
+        "episode": 12,
+        "seed": 1202,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 27,
+        "reward": 268.0
+      },
+      {
+        "episode": 13,
+        "seed": 1302,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 22,
+        "reward": 240.0
+      },
+      {
+        "episode": 14,
+        "seed": 1402,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 36,
+        "reward": 230.0
+      },
+      {
+        "episode": 15,
+        "seed": 1502,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 16,
+        "reward": 262.0
+      },
+      {
+        "episode": 16,
+        "seed": 1602,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 21,
+        "reward": 302.0
+      },
+      {
+        "episode": 17,
+        "seed": 1702,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 324.0
+      },
+      {
+        "episode": 18,
+        "seed": 1802,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 4,
+        "steps": 33,
+        "reward": 182.0
+      },
+      {
+        "episode": 19,
+        "seed": 1902,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 352.0
+      },
+      {
+        "episode": 20,
+        "seed": 2002,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 39,
+        "reward": 304.0
+      },
+      {
+        "episode": 21,
+        "seed": 2102,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 39,
+        "reward": 242.0
+      },
+      {
+        "episode": 22,
+        "seed": 2202,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 328.0
+      },
+      {
+        "episode": 23,
+        "seed": 2302,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 28,
+        "reward": 336.0
+      },
+      {
+        "episode": 24,
+        "seed": 2402,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 332.0
+      },
+      {
+        "episode": 25,
+        "seed": 2502,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 43,
+        "reward": 308.0
+      },
+      {
+        "episode": 26,
+        "seed": 2602,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 33,
+        "reward": 336.0
+      },
+      {
+        "episode": 27,
+        "seed": 2702,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 12,
+        "reward": 286.0
+      },
+      {
+        "episode": 28,
+        "seed": 2802,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 17,
+        "reward": 310.0
+      },
+      {
+        "episode": 29,
+        "seed": 2902,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 28,
+        "reward": 306.0
+      },
+      {
+        "episode": 30,
+        "seed": 3002,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 326.0
+      },
+      {
+        "episode": 31,
+        "seed": 3102,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 332.0
+      },
+      {
+        "episode": 32,
+        "seed": 3202,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 342.0
+      },
+      {
+        "episode": 33,
+        "seed": 3302,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 336.0
+      },
+      {
+        "episode": 34,
+        "seed": 3402,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 344.0
+      },
+      {
+        "episode": 35,
+        "seed": 3502,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 20,
+        "reward": 288.0
+      },
+      {
+        "episode": 36,
+        "seed": 3602,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 318.0
+      },
+      {
+        "episode": 37,
+        "seed": 3702,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 328.0
+      },
+      {
+        "episode": 38,
+        "seed": 3802,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 334.0
+      },
+      {
+        "episode": 39,
+        "seed": 3902,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 24,
+        "reward": 334.0
+      },
+      {
+        "episode": 40,
+        "seed": 4002,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 4,
+        "steps": 35,
+        "reward": 216.0
+      },
+      {
+        "episode": 41,
+        "seed": 4102,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 330.0
+      },
+      {
+        "episode": 42,
+        "seed": 4202,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 304.0
+      },
+      {
+        "episode": 43,
+        "seed": 4302,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 26,
+        "reward": 370.0
+      },
+      {
+        "episode": 44,
+        "seed": 4402,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 322.0
+      },
+      {
+        "episode": 45,
+        "seed": 4502,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 24,
+        "reward": 292.0
+      },
+      {
+        "episode": 46,
+        "seed": 4602,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 288.0
+      },
+      {
+        "episode": 47,
+        "seed": 4702,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 4,
+        "steps": 35,
+        "reward": 220.0
+      },
+      {
+        "episode": 48,
+        "seed": 4802,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 344.0
+      },
+      {
+        "episode": 49,
+        "seed": 4902,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 14,
+        "reward": 312.0
+      },
+      {
+        "episode": 50,
+        "seed": 5002,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 328.0
+      },
+      {
+        "episode": 51,
+        "seed": 5102,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 21,
+        "reward": 322.0
+      },
+      {
+        "episode": 52,
+        "seed": 5202,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 32,
+        "reward": 250.0
+      },
+      {
+        "episode": 53,
+        "seed": 5302,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 334.0
+      },
+      {
+        "episode": 54,
+        "seed": 5402,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 29,
+        "reward": 296.0
+      },
+      {
+        "episode": 55,
+        "seed": 5502,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 328.0
+      },
+      {
+        "episode": 56,
+        "seed": 5602,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 13,
+        "reward": 308.0
+      },
+      {
+        "episode": 57,
+        "seed": 5702,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 312.0
+      },
+      {
+        "episode": 58,
+        "seed": 5802,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 328.0
+      },
+      {
+        "episode": 59,
+        "seed": 5902,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 17,
+        "reward": 222.0
+      },
+      {
+        "episode": 60,
+        "seed": 6002,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 336.0
+      },
+      {
+        "episode": 61,
+        "seed": 6102,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 334.0
+      },
+      {
+        "episode": 62,
+        "seed": 6202,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 22,
+        "reward": 276.0
+      },
+      {
+        "episode": 63,
+        "seed": 6302,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 328.0
+      },
+      {
+        "episode": 64,
+        "seed": 6402,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 4,
+        "steps": 24,
+        "reward": 170.0
+      },
+      {
+        "episode": 65,
+        "seed": 6502,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 31,
+        "reward": 358.0
+      },
+      {
+        "episode": 66,
+        "seed": 6602,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 344.0
+      },
+      {
+        "episode": 67,
+        "seed": 6702,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 338.0
+      },
+      {
+        "episode": 68,
+        "seed": 6802,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 48,
+        "reward": 368.0
+      },
+      {
+        "episode": 69,
+        "seed": 6902,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 19,
+        "reward": 296.0
+      },
+      {
+        "episode": 70,
+        "seed": 7002,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 358.0
+      },
+      {
+        "episode": 71,
+        "seed": 7102,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 346.0
+      },
+      {
+        "episode": 72,
+        "seed": 7202,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 20,
+        "reward": 292.0
+      },
+      {
+        "episode": 73,
+        "seed": 7302,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 348.0
+      },
+      {
+        "episode": 74,
+        "seed": 7402,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 14,
+        "reward": 324.0
+      },
+      {
+        "episode": 75,
+        "seed": 7502,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 364.0
+      },
+      {
+        "episode": 76,
+        "seed": 7602,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 358.0
+      },
+      {
+        "episode": 77,
+        "seed": 7702,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 314.0
+      },
+      {
+        "episode": 78,
+        "seed": 7802,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 328.0
+      },
+      {
+        "episode": 79,
+        "seed": 7902,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 19,
+        "reward": 304.0
+      },
+      {
+        "episode": 80,
+        "seed": 8002,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 302.0
+      },
+      {
+        "episode": 81,
+        "seed": 8102,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 356.0
+      },
+      {
+        "episode": 82,
+        "seed": 8202,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 322.0
+      },
+      {
+        "episode": 83,
+        "seed": 8302,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 15,
+        "reward": 288.0
+      },
+      {
+        "episode": 84,
+        "seed": 8402,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 15,
+        "reward": 322.0
+      },
+      {
+        "episode": 85,
+        "seed": 8502,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 45,
+        "reward": 184.0
+      },
+      {
+        "episode": 86,
+        "seed": 8602,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 25,
+        "reward": 294.0
+      },
+      {
+        "episode": 87,
+        "seed": 8702,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 21,
+        "reward": 330.0
+      },
+      {
+        "episode": 88,
+        "seed": 8802,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 19,
+        "reward": 262.0
+      },
+      {
+        "episode": 89,
+        "seed": 8902,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 310.0
+      },
+      {
+        "episode": 90,
+        "seed": 9002,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 26,
+        "reward": 324.0
+      },
+      {
+        "episode": 91,
+        "seed": 9102,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 19,
+        "reward": 294.0
+      },
+      {
+        "episode": 92,
+        "seed": 9202,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 22,
+        "reward": 308.0
+      },
+      {
+        "episode": 93,
+        "seed": 9302,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 30,
+        "reward": 314.0
+      },
+      {
+        "episode": 94,
+        "seed": 9402,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 20,
+        "reward": 318.0
+      },
+      {
+        "episode": 95,
+        "seed": 9502,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 17,
+        "reward": 324.0
+      },
+      {
+        "episode": 96,
+        "seed": 9602,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 294.0
+      },
+      {
+        "episode": 97,
+        "seed": 9702,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 29,
+        "reward": 302.0
+      },
+      {
+        "episode": 98,
+        "seed": 9802,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 338.0
+      },
+      {
+        "episode": 99,
+        "seed": 9902,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 17,
+        "reward": 268.0
+      }
+    ],
+    "3": [
+      {
+        "episode": 0,
+        "seed": 3,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 25,
+        "reward": 278.0
+      },
+      {
+        "episode": 1,
+        "seed": 103,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 38,
+        "reward": 286.0
+      },
+      {
+        "episode": 2,
+        "seed": 203,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 25,
+        "reward": 264.0
+      },
+      {
+        "episode": 3,
+        "seed": 303,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 26,
+        "reward": 324.0
+      },
+      {
+        "episode": 4,
+        "seed": 403,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 17,
+        "reward": 304.0
+      },
+      {
+        "episode": 5,
+        "seed": 503,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 29,
+        "reward": 260.0
+      },
+      {
+        "episode": 6,
+        "seed": 603,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 28,
+        "reward": 278.0
+      },
+      {
+        "episode": 7,
+        "seed": 703,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 41,
+        "reward": 302.0
+      },
+      {
+        "episode": 8,
+        "seed": 803,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 25,
+        "reward": 254.0
+      },
+      {
+        "episode": 9,
+        "seed": 903,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 23,
+        "reward": 282.0
+      },
+      {
+        "episode": 10,
+        "seed": 1003,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 17,
+        "reward": 260.0
+      },
+      {
+        "episode": 11,
+        "seed": 1103,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 29,
+        "reward": 272.0
+      },
+      {
+        "episode": 12,
+        "seed": 1203,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 24,
+        "reward": 306.0
+      },
+      {
+        "episode": 13,
+        "seed": 1303,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 18,
+        "reward": 262.0
+      },
+      {
+        "episode": 14,
+        "seed": 1403,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 26,
+        "reward": 264.0
+      },
+      {
+        "episode": 15,
+        "seed": 1503,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 27,
+        "reward": 316.0
+      },
+      {
+        "episode": 16,
+        "seed": 1603,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 25,
+        "reward": 272.0
+      },
+      {
+        "episode": 17,
+        "seed": 1703,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 23,
+        "reward": 276.0
+      },
+      {
+        "episode": 18,
+        "seed": 1803,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 32,
+        "reward": 254.0
+      },
+      {
+        "episode": 19,
+        "seed": 1903,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 29,
+        "reward": 310.0
+      },
+      {
+        "episode": 20,
+        "seed": 2003,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 23,
+        "reward": 258.0
+      },
+      {
+        "episode": 21,
+        "seed": 2103,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 31,
+        "reward": 226.0
+      },
+      {
+        "episode": 22,
+        "seed": 2203,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 25,
+        "reward": 210.0
+      },
+      {
+        "episode": 23,
+        "seed": 2303,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 23,
+        "reward": 316.0
+      },
+      {
+        "episode": 24,
+        "seed": 2403,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 22,
+        "reward": 300.0
+      },
+      {
+        "episode": 25,
+        "seed": 2503,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 29,
+        "reward": 290.0
+      },
+      {
+        "episode": 26,
+        "seed": 2603,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 348.0
+      },
+      {
+        "episode": 27,
+        "seed": 2703,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 27,
+        "reward": 282.0
+      },
+      {
+        "episode": 28,
+        "seed": 2803,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 30,
+        "reward": 254.0
+      },
+      {
+        "episode": 29,
+        "seed": 2903,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 14,
+        "reward": 212.0
+      },
+      {
+        "episode": 30,
+        "seed": 3003,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 27,
+        "reward": 284.0
+      },
+      {
+        "episode": 31,
+        "seed": 3103,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 20,
+        "reward": 260.0
+      },
+      {
+        "episode": 32,
+        "seed": 3203,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 23,
+        "reward": 364.0
+      },
+      {
+        "episode": 33,
+        "seed": 3303,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 21,
+        "reward": 266.0
+      },
+      {
+        "episode": 34,
+        "seed": 3403,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 18,
+        "reward": 264.0
+      },
+      {
+        "episode": 35,
+        "seed": 3503,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 24,
+        "reward": 248.0
+      },
+      {
+        "episode": 36,
+        "seed": 3603,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 22,
+        "reward": 256.0
+      },
+      {
+        "episode": 37,
+        "seed": 3703,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 29,
+        "reward": 252.0
+      },
+      {
+        "episode": 38,
+        "seed": 3803,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 32,
+        "reward": 334.0
+      },
+      {
+        "episode": 39,
+        "seed": 3903,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 18,
+        "reward": 280.0
+      },
+      {
+        "episode": 40,
+        "seed": 4003,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 20,
+        "reward": 282.0
+      },
+      {
+        "episode": 41,
+        "seed": 4103,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 27,
+        "reward": 284.0
+      },
+      {
+        "episode": 42,
+        "seed": 4203,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 30,
+        "reward": 362.0
+      },
+      {
+        "episode": 43,
+        "seed": 4303,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 23,
+        "reward": 314.0
+      },
+      {
+        "episode": 44,
+        "seed": 4403,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 318.0
+      },
+      {
+        "episode": 45,
+        "seed": 4503,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 25,
+        "reward": 204.0
+      },
+      {
+        "episode": 46,
+        "seed": 4603,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 25,
+        "reward": 280.0
+      },
+      {
+        "episode": 47,
+        "seed": 4703,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 27,
+        "reward": 254.0
+      },
+      {
+        "episode": 48,
+        "seed": 4803,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 37,
+        "reward": 292.0
+      },
+      {
+        "episode": 49,
+        "seed": 4903,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 23,
+        "reward": 288.0
+      },
+      {
+        "episode": 50,
+        "seed": 5003,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 14,
+        "reward": 294.0
+      },
+      {
+        "episode": 51,
+        "seed": 5103,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 22,
+        "reward": 236.0
+      },
+      {
+        "episode": 52,
+        "seed": 5203,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 18,
+        "reward": 338.0
+      },
+      {
+        "episode": 53,
+        "seed": 5303,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 21,
+        "reward": 250.0
+      },
+      {
+        "episode": 54,
+        "seed": 5403,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 20,
+        "reward": 248.0
+      },
+      {
+        "episode": 55,
+        "seed": 5503,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 29,
+        "reward": 296.0
+      },
+      {
+        "episode": 56,
+        "seed": 5603,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 29,
+        "reward": 214.0
+      },
+      {
+        "episode": 57,
+        "seed": 5703,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 312.0
+      },
+      {
+        "episode": 58,
+        "seed": 5803,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 21,
+        "reward": 294.0
+      },
+      {
+        "episode": 59,
+        "seed": 5903,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 5,
+        "steps": 22,
+        "reward": 144.0
+      },
+      {
+        "episode": 60,
+        "seed": 6003,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 22,
+        "reward": 224.0
+      },
+      {
+        "episode": 61,
+        "seed": 6103,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 332.0
+      },
+      {
+        "episode": 62,
+        "seed": 6203,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 26,
+        "reward": 348.0
+      },
+      {
+        "episode": 63,
+        "seed": 6303,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 16,
+        "reward": 274.0
+      },
+      {
+        "episode": 64,
+        "seed": 6403,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 310.0
+      },
+      {
+        "episode": 65,
+        "seed": 6503,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 19,
+        "reward": 272.0
+      },
+      {
+        "episode": 66,
+        "seed": 6603,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 24,
+        "reward": 252.0
+      },
+      {
+        "episode": 67,
+        "seed": 6703,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 29,
+        "reward": 306.0
+      },
+      {
+        "episode": 68,
+        "seed": 6803,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 19,
+        "reward": 256.0
+      },
+      {
+        "episode": 69,
+        "seed": 6903,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 16,
+        "reward": 266.0
+      },
+      {
+        "episode": 70,
+        "seed": 7003,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 26,
+        "reward": 328.0
+      },
+      {
+        "episode": 71,
+        "seed": 7103,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 300.0
+      },
+      {
+        "episode": 72,
+        "seed": 7203,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 20,
+        "reward": 242.0
+      },
+      {
+        "episode": 73,
+        "seed": 7303,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 13,
+        "reward": 224.0
+      },
+      {
+        "episode": 74,
+        "seed": 7403,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 20,
+        "reward": 260.0
+      },
+      {
+        "episode": 75,
+        "seed": 7503,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 20,
+        "reward": 252.0
+      },
+      {
+        "episode": 76,
+        "seed": 7603,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 19,
+        "reward": 298.0
+      },
+      {
+        "episode": 77,
+        "seed": 7703,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 23,
+        "reward": 246.0
+      },
+      {
+        "episode": 78,
+        "seed": 7803,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 31,
+        "reward": 314.0
+      },
+      {
+        "episode": 79,
+        "seed": 7903,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 13,
+        "reward": 252.0
+      },
+      {
+        "episode": 80,
+        "seed": 8003,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 26,
+        "reward": 286.0
+      },
+      {
+        "episode": 81,
+        "seed": 8103,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 24,
+        "reward": 336.0
+      },
+      {
+        "episode": 82,
+        "seed": 8203,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 20,
+        "reward": 244.0
+      },
+      {
+        "episode": 83,
+        "seed": 8303,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 4,
+        "steps": 21,
+        "reward": 176.0
+      },
+      {
+        "episode": 84,
+        "seed": 8403,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 22,
+        "reward": 284.0
+      },
+      {
+        "episode": 85,
+        "seed": 8503,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 22,
+        "reward": 284.0
+      },
+      {
+        "episode": 86,
+        "seed": 8603,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 25,
+        "reward": 232.0
+      },
+      {
+        "episode": 87,
+        "seed": 8703,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 25,
+        "reward": 292.0
+      },
+      {
+        "episode": 88,
+        "seed": 8803,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 33,
+        "reward": 232.0
+      },
+      {
+        "episode": 89,
+        "seed": 8903,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 13,
+        "reward": 288.0
+      },
+      {
+        "episode": 90,
+        "seed": 9003,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 23,
+        "reward": 304.0
+      },
+      {
+        "episode": 91,
+        "seed": 9103,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 28,
+        "reward": 266.0
+      },
+      {
+        "episode": 92,
+        "seed": 9203,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 20,
+        "reward": 320.0
+      },
+      {
+        "episode": 93,
+        "seed": 9303,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 17,
+        "reward": 262.0
+      },
+      {
+        "episode": 94,
+        "seed": 9403,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 1,
+        "steps": 17,
+        "reward": 294.0
+      },
+      {
+        "episode": 95,
+        "seed": 9503,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 3,
+        "steps": 19,
+        "reward": 216.0
+      },
+      {
+        "episode": 96,
+        "seed": 9603,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 15,
+        "reward": 218.0
+      },
+      {
+        "episode": 97,
+        "seed": 9703,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 4,
+        "steps": 15,
+        "reward": 182.0
+      },
+      {
+        "episode": 98,
+        "seed": 9803,
+        "survival_rate": 0.8,
+        "escaped": 8,
+        "dead": 2,
+        "steps": 35,
+        "reward": 270.0
+      },
+      {
+        "episode": 99,
+        "seed": 9903,
+        "survival_rate": 1.0,
+        "escaped": 10,
+        "dead": 0,
+        "steps": 31,
+        "reward": 352.0
+      }
+    ],
+    "4": [
+      {
+        "episode": 0,
+        "seed": 4,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 1,
+        "steps": 400,
+        "reward": 44.0
+      },
+      {
+        "episode": 1,
+        "seed": 104,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 5,
+        "steps": 400,
+        "reward": 44.0
+      },
+      {
+        "episode": 2,
+        "seed": 204,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 2,
+        "steps": 400,
+        "reward": 182.0
+      },
+      {
+        "episode": 3,
+        "seed": 304,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 4,
+        "steps": 400,
+        "reward": -13.0
+      },
+      {
+        "episode": 4,
+        "seed": 404,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 3,
+        "steps": 400,
+        "reward": -14.0
+      },
+      {
+        "episode": 5,
+        "seed": 504,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 1,
+        "steps": 400,
+        "reward": 60.0
+      },
+      {
+        "episode": 6,
+        "seed": 604,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 1,
+        "steps": 400,
+        "reward": 60.0
+      },
+      {
+        "episode": 7,
+        "seed": 704,
+        "survival_rate": 0.0,
+        "escaped": 0,
+        "dead": 4,
+        "steps": 400,
+        "reward": -50.0
+      },
+      {
+        "episode": 8,
+        "seed": 804,
+        "survival_rate": 0.0,
+        "escaped": 0,
+        "dead": 4,
+        "steps": 400,
+        "reward": -50.0
+      },
+      {
+        "episode": 9,
+        "seed": 904,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 4,
+        "steps": 400,
+        "reward": -3.0
+      },
+      {
+        "episode": 10,
+        "seed": 1004,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 1,
+        "steps": 400,
+        "reward": 244.0
+      },
+      {
+        "episode": 11,
+        "seed": 1104,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 2,
+        "steps": 400,
+        "reward": 135.0
+      },
+      {
+        "episode": 12,
+        "seed": 1204,
+        "survival_rate": 0.4,
+        "escaped": 4,
+        "dead": 3,
+        "steps": 400,
+        "reward": 67.0
+      },
+      {
+        "episode": 13,
+        "seed": 1304,
+        "survival_rate": 0.4,
+        "escaped": 4,
+        "dead": 2,
+        "steps": 400,
+        "reward": 100.0
+      },
+      {
+        "episode": 14,
+        "seed": 1404,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 2,
+        "steps": 400,
+        "reward": 146.0
+      },
+      {
+        "episode": 15,
+        "seed": 1504,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 2,
+        "steps": 400,
+        "reward": 186.0
+      },
+      {
+        "episode": 16,
+        "seed": 1604,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 2,
+        "steps": 400,
+        "reward": 129.0
+      },
+      {
+        "episode": 17,
+        "seed": 1704,
+        "survival_rate": 0.4,
+        "escaped": 4,
+        "dead": 5,
+        "steps": 400,
+        "reward": 123.0
+      },
+      {
+        "episode": 18,
+        "seed": 1804,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 2,
+        "steps": 400,
+        "reward": 117.0
+      },
+      {
+        "episode": 19,
+        "seed": 1904,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 2,
+        "steps": 400,
+        "reward": 125.0
+      },
+      {
+        "episode": 20,
+        "seed": 2004,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 3,
+        "steps": 400,
+        "reward": -16.0
+      },
+      {
+        "episode": 21,
+        "seed": 2104,
+        "survival_rate": 0.0,
+        "escaped": 0,
+        "dead": 5,
+        "steps": 400,
+        "reward": -55.0
+      },
+      {
+        "episode": 22,
+        "seed": 2204,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 1,
+        "steps": 400,
+        "reward": 142.0
+      },
+      {
+        "episode": 23,
+        "seed": 2304,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 4,
+        "steps": 400,
+        "reward": -25.0
+      },
+      {
+        "episode": 24,
+        "seed": 2404,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 6,
+        "steps": 400,
+        "reward": 46.0
+      },
+      {
+        "episode": 25,
+        "seed": 2504,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 2,
+        "steps": 400,
+        "reward": 32.0
+      },
+      {
+        "episode": 26,
+        "seed": 2604,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 4,
+        "steps": 400,
+        "reward": 47.0
+      },
+      {
+        "episode": 27,
+        "seed": 2704,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 5,
+        "steps": 400,
+        "reward": -3.0
+      },
+      {
+        "episode": 28,
+        "seed": 2804,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 4,
+        "steps": 400,
+        "reward": 18.0
+      },
+      {
+        "episode": 29,
+        "seed": 2904,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 1,
+        "steps": 400,
+        "reward": 47.0
+      },
+      {
+        "episode": 30,
+        "seed": 3004,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 7,
+        "steps": 62,
+        "reward": 28.0
+      },
+      {
+        "episode": 31,
+        "seed": 3104,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 0,
+        "steps": 400,
+        "reward": 245.0
+      },
+      {
+        "episode": 32,
+        "seed": 3204,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 1,
+        "steps": 400,
+        "reward": 163.0
+      },
+      {
+        "episode": 33,
+        "seed": 3304,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 2,
+        "steps": 400,
+        "reward": 61.0
+      },
+      {
+        "episode": 34,
+        "seed": 3404,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 0,
+        "steps": 400,
+        "reward": 129.0
+      },
+      {
+        "episode": 35,
+        "seed": 3504,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 2,
+        "steps": 400,
+        "reward": 129.0
+      },
+      {
+        "episode": 36,
+        "seed": 3604,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 2,
+        "steps": 400,
+        "reward": 139.0
+      },
+      {
+        "episode": 37,
+        "seed": 3704,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 1,
+        "steps": 400,
+        "reward": 15.0
+      },
+      {
+        "episode": 38,
+        "seed": 3804,
+        "survival_rate": 0.9,
+        "escaped": 9,
+        "dead": 0,
+        "steps": 400,
+        "reward": 307.0
+      },
+      {
+        "episode": 39,
+        "seed": 3904,
+        "survival_rate": 0.0,
+        "escaped": 0,
+        "dead": 2,
+        "steps": 400,
+        "reward": -40.0
+      },
+      {
+        "episode": 40,
+        "seed": 4004,
+        "survival_rate": 0.0,
+        "escaped": 0,
+        "dead": 6,
+        "steps": 400,
+        "reward": -26.0
+      },
+      {
+        "episode": 41,
+        "seed": 4104,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 1,
+        "steps": 400,
+        "reward": 201.0
+      },
+      {
+        "episode": 42,
+        "seed": 4204,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 8,
+        "steps": 38,
+        "reward": 34.0
+      },
+      {
+        "episode": 43,
+        "seed": 4304,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 1,
+        "steps": 400,
+        "reward": 140.0
+      },
+      {
+        "episode": 44,
+        "seed": 4404,
+        "survival_rate": 0.4,
+        "escaped": 4,
+        "dead": 1,
+        "steps": 400,
+        "reward": 117.0
+      },
+      {
+        "episode": 45,
+        "seed": 4504,
+        "survival_rate": 0.4,
+        "escaped": 4,
+        "dead": 1,
+        "steps": 400,
+        "reward": 109.0
+      },
+      {
+        "episode": 46,
+        "seed": 4604,
+        "survival_rate": 0.0,
+        "escaped": 0,
+        "dead": 4,
+        "steps": 400,
+        "reward": -50.0
+      },
+      {
+        "episode": 47,
+        "seed": 4704,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 6,
+        "steps": 400,
+        "reward": 110.0
+      },
+      {
+        "episode": 48,
+        "seed": 4804,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 1,
+        "steps": 400,
+        "reward": 192.0
+      },
+      {
+        "episode": 49,
+        "seed": 4904,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 6,
+        "steps": 400,
+        "reward": 119.0
+      },
+      {
+        "episode": 50,
+        "seed": 5004,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 6,
+        "steps": 400,
+        "reward": 57.0
+      },
+      {
+        "episode": 51,
+        "seed": 5104,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 0,
+        "steps": 400,
+        "reward": 184.0
+      },
+      {
+        "episode": 52,
+        "seed": 5204,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 2,
+        "steps": 400,
+        "reward": 24.0
+      },
+      {
+        "episode": 53,
+        "seed": 5304,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 0,
+        "steps": 400,
+        "reward": 73.0
+      },
+      {
+        "episode": 54,
+        "seed": 5404,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 3,
+        "steps": 400,
+        "reward": 52.0
+      },
+      {
+        "episode": 55,
+        "seed": 5504,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 2,
+        "steps": 400,
+        "reward": 22.0
+      },
+      {
+        "episode": 56,
+        "seed": 5604,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 2,
+        "steps": 400,
+        "reward": 71.0
+      },
+      {
+        "episode": 57,
+        "seed": 5704,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 5,
+        "steps": 400,
+        "reward": -26.0
+      },
+      {
+        "episode": 58,
+        "seed": 5804,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 0,
+        "steps": 400,
+        "reward": 174.0
+      },
+      {
+        "episode": 59,
+        "seed": 5904,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 3,
+        "steps": 400,
+        "reward": 7.0
+      },
+      {
+        "episode": 60,
+        "seed": 6004,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 1,
+        "steps": 400,
+        "reward": 207.0
+      },
+      {
+        "episode": 61,
+        "seed": 6104,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 4,
+        "steps": 400,
+        "reward": -19.0
+      },
+      {
+        "episode": 62,
+        "seed": 6204,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 0,
+        "steps": 400,
+        "reward": 215.0
+      },
+      {
+        "episode": 63,
+        "seed": 6304,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 2,
+        "steps": 400,
+        "reward": 41.0
+      },
+      {
+        "episode": 64,
+        "seed": 6404,
+        "survival_rate": 0.0,
+        "escaped": 0,
+        "dead": 3,
+        "steps": 400,
+        "reward": -45.0
+      },
+      {
+        "episode": 65,
+        "seed": 6504,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 1,
+        "steps": 400,
+        "reward": 154.0
+      },
+      {
+        "episode": 66,
+        "seed": 6604,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 7,
+        "steps": 400,
+        "reward": 57.0
+      },
+      {
+        "episode": 67,
+        "seed": 6704,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 6,
+        "steps": 400,
+        "reward": 72.0
+      },
+      {
+        "episode": 68,
+        "seed": 6804,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 0,
+        "steps": 400,
+        "reward": 87.0
+      },
+      {
+        "episode": 69,
+        "seed": 6904,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 3,
+        "steps": 400,
+        "reward": 104.0
+      },
+      {
+        "episode": 70,
+        "seed": 7004,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 2,
+        "steps": 400,
+        "reward": 79.0
+      },
+      {
+        "episode": 71,
+        "seed": 7104,
+        "survival_rate": 0.6,
+        "escaped": 6,
+        "dead": 2,
+        "steps": 400,
+        "reward": 138.0
+      },
+      {
+        "episode": 72,
+        "seed": 7204,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 1,
+        "steps": 400,
+        "reward": 58.0
+      },
+      {
+        "episode": 73,
+        "seed": 7304,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 3,
+        "steps": 400,
+        "reward": 122.0
+      },
+      {
+        "episode": 74,
+        "seed": 7404,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 2,
+        "steps": 400,
+        "reward": -5.0
+      },
+      {
+        "episode": 75,
+        "seed": 7504,
+        "survival_rate": 0.4,
+        "escaped": 4,
+        "dead": 4,
+        "steps": 400,
+        "reward": 90.0
+      },
+      {
+        "episode": 76,
+        "seed": 7604,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 7,
+        "steps": 400,
+        "reward": 72.0
+      },
+      {
+        "episode": 77,
+        "seed": 7704,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 1,
+        "steps": 400,
+        "reward": 190.0
+      },
+      {
+        "episode": 78,
+        "seed": 7804,
+        "survival_rate": 0.4,
+        "escaped": 4,
+        "dead": 3,
+        "steps": 400,
+        "reward": 83.0
+      },
+      {
+        "episode": 79,
+        "seed": 7904,
+        "survival_rate": 0.4,
+        "escaped": 4,
+        "dead": 2,
+        "steps": 400,
+        "reward": 116.0
+      },
+      {
+        "episode": 80,
+        "seed": 8004,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 6,
+        "steps": 400,
+        "reward": 8.0
+      },
+      {
+        "episode": 81,
+        "seed": 8104,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 5,
+        "steps": 400,
+        "reward": 10.0
+      },
+      {
+        "episode": 82,
+        "seed": 8204,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 4,
+        "steps": 400,
+        "reward": -11.0
+      },
+      {
+        "episode": 83,
+        "seed": 8304,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 1,
+        "steps": 400,
+        "reward": 78.0
+      },
+      {
+        "episode": 84,
+        "seed": 8404,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 4,
+        "steps": 400,
+        "reward": 23.0
+      },
+      {
+        "episode": 85,
+        "seed": 8504,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 5,
+        "steps": 400,
+        "reward": 46.0
+      },
+      {
+        "episode": 86,
+        "seed": 8604,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 5,
+        "steps": 400,
+        "reward": 28.0
+      },
+      {
+        "episode": 87,
+        "seed": 8704,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 0,
+        "steps": 400,
+        "reward": 231.0
+      },
+      {
+        "episode": 88,
+        "seed": 8804,
+        "survival_rate": 0.7,
+        "escaped": 7,
+        "dead": 0,
+        "steps": 400,
+        "reward": 213.0
+      },
+      {
+        "episode": 89,
+        "seed": 8904,
+        "survival_rate": 0.2,
+        "escaped": 2,
+        "dead": 2,
+        "steps": 400,
+        "reward": 42.0
+      },
+      {
+        "episode": 90,
+        "seed": 9004,
+        "survival_rate": 0.4,
+        "escaped": 4,
+        "dead": 0,
+        "steps": 400,
+        "reward": 120.0
+      },
+      {
+        "episode": 91,
+        "seed": 9104,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 1,
+        "steps": 400,
+        "reward": 86.0
+      },
+      {
+        "episode": 92,
+        "seed": 9204,
+        "survival_rate": 0.0,
+        "escaped": 0,
+        "dead": 0,
+        "steps": 400,
+        "reward": -30.0
+      },
+      {
+        "episode": 93,
+        "seed": 9304,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 6,
+        "steps": 400,
+        "reward": 31.0
+      },
+      {
+        "episode": 94,
+        "seed": 9404,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 5,
+        "steps": 400,
+        "reward": -30.0
+      },
+      {
+        "episode": 95,
+        "seed": 9504,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 1,
+        "steps": 400,
+        "reward": 130.0
+      },
+      {
+        "episode": 96,
+        "seed": 9604,
+        "survival_rate": 0.0,
+        "escaped": 0,
+        "dead": 3,
+        "steps": 400,
+        "reward": -33.0
+      },
+      {
+        "episode": 97,
+        "seed": 9704,
+        "survival_rate": 0.3,
+        "escaped": 3,
+        "dead": 4,
+        "steps": 400,
+        "reward": 53.0
+      },
+      {
+        "episode": 98,
+        "seed": 9804,
+        "survival_rate": 0.5,
+        "escaped": 5,
+        "dead": 1,
+        "steps": 400,
+        "reward": 190.0
+      },
+      {
+        "episode": 99,
+        "seed": 9904,
+        "survival_rate": 0.1,
+        "escaped": 1,
+        "dead": 5,
+        "steps": 400,
+        "reward": -26.0
+      }
+    ]
+  }
+}
