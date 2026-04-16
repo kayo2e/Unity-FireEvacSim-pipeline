@@ -254,7 +254,8 @@ class FireEvacEnv(gym.Env):
                 # 출구로 가까워지면 +, 멀어지면 - (shaping reward)
                 # ★ 이것이 RL이 "어떤 방향이 출구 방향인지" 학습하는 핵심 신호
                 delta = p["prev_dist"] - cur_dist
-                reward += delta * 2.0
+                urgency = 1.0 + (self.step_count / self.cfg["max_steps"]) * 2.0
+                reward += delta * 2.0 * urgency
                 p["prev_dist"] = cur_dist
                 next_people.append(p)
 
