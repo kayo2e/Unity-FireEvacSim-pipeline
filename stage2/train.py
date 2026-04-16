@@ -269,12 +269,16 @@ class FireEvacEnv(gym.Env):
                 alive.append(p)
         self.people_data = alive
 
-        # 타임아웃: 못 나간 인원당 페널티
-        if self.step_count >= self.cfg["max_steps"]:
-            reward -= len(self.people_data) * 3.0
-
         terminated = len(self.people_data) == 0
         truncated  = self.step_count >= self.cfg["max_steps"]
+
+        # 에피소드 종료 시 미탈출 인원 전체에 패널티
+        # - 잔류(타임아웃): 아직 살아있지만 못 나간 인원 → -5.0
+        # - 사망은 이미 스텝마다 -8.0 처리됨
+        if terminated or truncated:
+            not_escaped = self.n_agents - self.escaped
+            reward -= not_escaped * 5.0
+
         return self._get_obs(), reward, terminated, truncated, self._get_info()
 
     def _move_person(self, pos):
@@ -595,32 +599,119 @@ def train_fire_evac(person_counts=(10, 30, 50), total_timesteps=300_000, n_envs=
 # ══════════════════════════════════════════════
 # 테스트
 # ══════════════════════════════════════════════
-def test_fire_evac(n_agents: int = 10, scenario: int = 1, n_episodes: int = 3):
-    import os
-    model_path = f"fire_evac_model_{n_agents}ppl"
+def test_fire_evac(n_agents: int = 10, scenario: int = 1, n_episodes: int = 10,
+                   save_results: bool = True, render: bool = False):
+    import os, csv, json
+    from datetime import datetime
+
+    model_path   = f"fire_evac_model_{n_agents}ppl"
     vecnorm_path = f"{model_path}_vecnorm.pkl"
     print(f"\n모델 로드: {model_path}.zip")
     model = PPO.load(model_path)
-    env   = FireEvacEnv(scenario=scenario, n_agents=n_agents, render_mode="human")
+
+    render_mode = "human" if render else None
+    env     = FireEvacEnv(scenario=scenario, n_agents=n_agents, render_mode=render_mode)
     vec_env = DummyVecEnv([lambda: env])
     if os.path.exists(vecnorm_path):
         vec_env = VecNormalize.load(vecnorm_path, vec_env)
-        vec_env.training = False
+        vec_env.training  = False
         vec_env.norm_reward = False
         print(f"정규화 통계 로드: {vecnorm_path}")
 
+    # ── 에피소드 단위 결과 수집 ─────────────────────────────────
+    records = []
     for ep in range(n_episodes):
-        obs = vec_env.reset(); total_r = 0.0
-        raw_info = env.cfg
-        print(f"\n[에피소드 {ep+1}] {raw_info['name']} | {n_agents}명")
+        obs      = vec_env.reset()
+        total_r  = 0.0
+        step_cnt = 0
+        max_fire = 0
+        print(f"\n[에피소드 {ep+1}/{n_episodes}] {env.cfg['name']} | {n_agents}명", end="", flush=True)
+
         for _ in range(env.cfg["max_steps"]):
             action, _ = model.predict(obs, deterministic=True)
             obs, r, done, infos = vec_env.step(action)
-            info = infos[0]
-            total_r += float(r[0]); env.render()
-            if done[0]: break
-        print(f"탈출 {info['escaped']}/{n_agents}명 | 생존율 {info['survival_rate']:.0%} | 보상 {total_r:.1f}")
+            info      = infos[0]
+            total_r  += float(r[0])
+            step_cnt  = info["step"]
+            max_fire  = max(max_fire, info["fire_cells"])
+            if render:
+                env.render()
+            if done[0]:
+                break
+
+        rec = {
+            "episode":       ep + 1,
+            "scenario":      scenario,
+            "scenario_name": env.cfg["name"],
+            "n_agents":      n_agents,
+            "escaped":       info["escaped"],
+            "dead":          info["dead"],
+            "remaining":     info["remaining"],
+            "survival_rate": round(info["survival_rate"], 4),
+            "total_reward":  round(total_r, 2),
+            "steps_taken":   step_cnt,
+            "max_fire_cells":max_fire,
+            "blocked_exits": str(info["blocked_exits"]),
+        }
+        records.append(rec)
+        print(f" → 탈출 {rec['escaped']}/{n_agents} | 생존율 {rec['survival_rate']:.0%} | 보상 {rec['total_reward']:+.1f} | {step_cnt}스텝")
+
     vec_env.close()
+
+    # ── 통계 요약 ──────────────────────────────────────────────
+    def stats(vals):
+        a = np.array(vals, dtype=float)
+        return {
+            "mean":   round(float(a.mean()), 4),
+            "std":    round(float(a.std()),  4),
+            "min":    round(float(a.min()),  4),
+            "max":    round(float(a.max()),  4),
+            "median": round(float(np.median(a)), 4),
+        }
+
+    summary = {
+        "model":         model_path,
+        "scenario":      scenario,
+        "scenario_name": env.cfg["name"],
+        "n_agents":      n_agents,
+        "n_episodes":    n_episodes,
+        "survival_rate": stats([r["survival_rate"]  for r in records]),
+        "total_reward":  stats([r["total_reward"]   for r in records]),
+        "steps_taken":   stats([r["steps_taken"]    for r in records]),
+        "escaped":       stats([r["escaped"]         for r in records]),
+        "dead":          stats([r["dead"]            for r in records]),
+        "max_fire_cells":stats([r["max_fire_cells"]  for r in records]),
+    }
+
+    print("\n" + "═" * 62)
+    print(f"  테스트 결과 요약 | {env.cfg['name']} | {n_agents}명 × {n_episodes}회")
+    print("═" * 62)
+    for key in ("survival_rate", "total_reward", "steps_taken", "escaped", "dead"):
+        s = summary[key]
+        print(f"  {key:<16} mean={s['mean']:>8}  std={s['std']:>7}  "
+              f"min={s['min']:>7}  max={s['max']:>7}  median={s['median']:>8}")
+    print("═" * 62)
+
+    # ── 파일 저장 ──────────────────────────────────────────────
+    if save_results:
+        ts  = datetime.now().strftime("%Y%m%d_%H%M%S")
+        tag = f"s{scenario}_{n_agents}ppl_{ts}"
+
+        csv_path  = f"test_results_{tag}.csv"
+        json_path = f"test_summary_{tag}.json"
+
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=records[0].keys())
+            writer.writeheader()
+            writer.writerows(records)
+
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(summary, f, ensure_ascii=False, indent=2)
+
+        print(f"\n  에피소드 기록 저장: {csv_path}")
+        print(f"  통계 요약 저장   : {json_path}")
+
+    return records, summary
 
 
 # ══════════════════════════════════════════════
@@ -633,8 +724,11 @@ if __name__ == "__main__":
     parser.add_argument("--people",        type=int, nargs="+", default=[10, 30, 50])
     parser.add_argument("--steps",         type=int, default=300_000)
     parser.add_argument("--n-envs",        type=int, default=None)
-    parser.add_argument("--test-n",        type=int, default=10)
-    parser.add_argument("--test-scenario", type=int, default=1)
+    parser.add_argument("--test-n",        type=int,  default=10)
+    parser.add_argument("--test-scenario", type=int,  default=1)
+    parser.add_argument("--test-episodes", type=int,  default=10)
+    parser.add_argument("--no-save",       action="store_true")
+    parser.add_argument("--render",        action="store_true")
     args = parser.parse_args()
 
     if args.mode == "check":
@@ -649,4 +743,10 @@ if __name__ == "__main__":
         train_fire_evac(person_counts=args.people, total_timesteps=args.steps, n_envs=args.n_envs)
 
     elif args.mode == "test":
-        test_fire_evac(n_agents=args.test_n, scenario=args.test_scenario)
+        test_fire_evac(
+            n_agents=args.test_n,
+            scenario=args.test_scenario,
+            n_episodes=args.test_episodes,
+            save_results=not args.no_save,
+            render=args.render,
+        )
