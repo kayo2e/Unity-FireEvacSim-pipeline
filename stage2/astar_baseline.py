@@ -1,0 +1,269 @@
+"""
+A* 규칙 기반 베이스라인 | 화재대피유도시스템 Stage 2
+=====================================================
+PPO 모델과의 공정한 성능 비교를 위한 베이스라인.
+
+[비교 구조]
+  PPO 모델        : 환경 관측 → 신경망 → [exit_A_cost, exit_B_cost, crowd_weight] → 유도등
+  A* 베이스라인   : 환경 관측 → 규칙 기반 → [exit_A_cost, exit_B_cost, crowd_weight] → 유도등
+
+제어 메커니즘(유도등 → 사람 이동)은 완전히 동일.
+차이는 비용 결정 방식: 학습된 정책 vs 규칙 기반 휴리스틱.
+
+[A* 규칙 기반 정책]
+  - 각 출구까지 화재 BFS 거리 계산
+  - 출구에 화재가 가까울수록 해당 출구 비용(cost) 증가
+  - 출구가 완전히 차단되면 최대 비용(50.0) 부여
+  - crowd_weight는 잔여 인원 비율에 비례하여 동적 조정
+
+실행:
+    python astar_baseline.py --scenario 1 --n 10 --episodes 30
+    python astar_baseline.py --all-scenarios --n 10 --episodes 30
+    python astar_baseline.py --all-scenarios --n 10 --episodes 30 --render
+"""
+
+import sys
+import numpy as np
+import os, csv, json
+from datetime import datetime
+from collections import deque
+
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
+# train.py 에서 환경 및 상수 공유
+from train import (
+    FireEvacEnv, SCENARIO_CONFIGS,
+    EXIT_A_POS, EXIT_B_POS,
+    WALKABLE, EXIT, DELTA,
+    BASE_GRID,
+)
+
+ROWS, COLS = BASE_GRID.shape
+
+
+# ══════════════════════════════════════════════
+# 규칙 기반 정책: 출구별 화재 위협 → 비용 결정
+# ══════════════════════════════════════════════
+def compute_fire_dist_to_exit(grid, fire_map, exit_positions: list, blocked_exits: set) -> float:
+    """
+    BFS로 화재 셀에서 출구까지의 최단 거리를 반환.
+    (값이 작을수록 화재가 출구에 가깝다 → 위험)
+    출구가 막혔거나 화재에 완전히 둘러싸인 경우 0 반환.
+    """
+    valid_exits = [(r, c) for (r, c) in exit_positions
+                   if grid[r, c] == EXIT and (r, c) not in blocked_exits]
+    if not valid_exits:
+        return 0.0  # 출구 자체가 없음 → 최대 위험
+
+    fire_cells = [(r, c) for r in range(ROWS) for c in range(COLS)
+                  if fire_map[r, c] > 0]
+    if not fire_cells:
+        return 999.0  # 화재 없음 → 위험 없음
+
+    # 화재 셀 → 출구까지 BFS
+    dist = np.full((ROWS, COLS), 9999.0)
+    q = deque()
+    for (r, c) in fire_cells:
+        dist[r, c] = 0
+        q.append((r, c))
+    while q:
+        r, c = q.popleft()
+        for dr, dc in DELTA.values():
+            nr, nc = r + dr, c + dc
+            if (0 <= nr < ROWS and 0 <= nc < COLS
+                    and dist[nr, nc] == 9999
+                    and grid[nr, nc] in WALKABLE):
+                dist[nr, nc] = dist[r, c] + 1
+                q.append((nr, nc))
+
+    return float(min(dist[r, c] for (r, c) in valid_exits))
+
+
+def rule_based_action(env: FireEvacEnv) -> np.ndarray:
+    """
+    현재 환경 상태를 보고 규칙으로 [exit_A_cost, exit_B_cost, crowd_weight] 결정.
+
+    규칙:
+      1. 각 출구까지 화재 BFS 거리 계산
+      2. 거리가 가까울수록 (위협이 클수록) cost 증가 (5.0 ~ 50.0)
+      3. 출구 차단 시 cost = 50.0 (최대 우회)
+      4. crowd_weight = 잔여 인원이 많을수록 높게 (분산 유도)
+    """
+    dist_a = compute_fire_dist_to_exit(
+        env.grid, env.fire_map, EXIT_A_POS, env.blocked_exits)
+    dist_b = compute_fire_dist_to_exit(
+        env.grid, env.fire_map, EXIT_B_POS, env.blocked_exits)
+
+    # 출구 폐쇄 여부 확인
+    a_blocked = all(cell in env.blocked_exits for cell in EXIT_A_POS)
+    b_blocked = all(cell in env.blocked_exits for cell in EXIT_B_POS)
+
+    # 화재 거리 → 비용 변환
+    # 거리 0~3: 매우 위험 → cost 50, 거리 10+: 안전 → cost 5
+    def dist_to_cost(d, blocked):
+        if blocked:
+            return 50.0
+        d = min(d, 20.0)
+        # 거리가 짧을수록 cost 높게 (선형 역변환)
+        cost = 50.0 - (d / 20.0) * 45.0
+        return float(np.clip(cost, 5.0, 50.0))
+
+    exit_a_cost  = dist_to_cost(dist_a, a_blocked)
+    exit_b_cost  = dist_to_cost(dist_b, b_blocked)
+
+    # crowd_weight: 잔여 인원이 많을수록 분산 강화
+    remaining_ratio = len(env.people_data) / max(env.n_agents, 1)
+    crowd_weight = float(np.clip(0.5 + remaining_ratio * 4.5, 0.5, 5.0))
+
+    return np.array([exit_a_cost, exit_b_cost, crowd_weight], dtype=np.float32)
+
+
+# ══════════════════════════════════════════════
+# 배치 테스트
+# ══════════════════════════════════════════════
+def run_test(scenario: int, n_agents: int = 10, n_episodes: int = 30,
+             save_results: bool = True, render: bool = False):
+
+    cfg = SCENARIO_CONFIGS[scenario]
+    render_mode = "human" if render else None
+
+    print(f"\n{'═'*62}")
+    print(f"  A* 규칙 기반 베이스라인")
+    print(f"  시나리오 {scenario}: {cfg['name']} | {n_agents}명 × {n_episodes}회")
+    print(f"{'═'*62}")
+
+    records = []
+    for ep in range(n_episodes):
+        env = FireEvacEnv(scenario=scenario, n_agents=n_agents,
+                          render_mode=render_mode)
+        _, info = env.reset()
+
+        total_r  = 0.0
+        max_fire = int(env.fire_map.sum())
+
+        for _ in range(cfg["max_steps"]):
+            action = rule_based_action(env)
+            _, reward, terminated, truncated, info = env.step(action)
+            total_r  += reward
+            max_fire  = max(max_fire, info["fire_cells"])
+            if render:
+                env.render()
+            if terminated or truncated:
+                break
+
+        rec = {
+            "episode":        ep + 1,
+            "scenario":       scenario,
+            "scenario_name":  cfg["name"],
+            "n_agents":       n_agents,
+            "escaped":        info["escaped"],
+            "dead":           info["dead"],
+            "remaining":      info["remaining"],
+            "survival_rate":  round(info["survival_rate"], 4),
+            "total_reward":   round(total_r, 2),
+            "steps_taken":    info["step"],
+            "max_fire_cells": max_fire,
+            "blocked_exits":  str(info["blocked_exits"]),
+        }
+        records.append(rec)
+        print(f"  [ep {ep+1:>3}/{n_episodes}] 탈출 {rec['escaped']}/{n_agents} | "
+              f"생존율 {rec['survival_rate']:.0%} | "
+              f"{rec['steps_taken']}스텝 | "
+              f"화재셀 {rec['max_fire_cells']}")
+        env.close()
+
+    # 통계
+    def stats(vals):
+        a = np.array(vals, dtype=float)
+        return {
+            "mean":   round(float(a.mean()), 4),
+            "std":    round(float(a.std()),  4),
+            "min":    round(float(a.min()),  4),
+            "max":    round(float(a.max()),  4),
+            "median": round(float(np.median(a)), 4),
+        }
+
+    summary = {
+        "model":          "astar_rule_baseline",
+        "scenario":       scenario,
+        "scenario_name":  cfg["name"],
+        "n_agents":       n_agents,
+        "n_episodes":     n_episodes,
+        "survival_rate":  stats([r["survival_rate"]   for r in records]),
+        "total_reward":   stats([r["total_reward"]    for r in records]),
+        "steps_taken":    stats([r["steps_taken"]     for r in records]),
+        "escaped":        stats([r["escaped"]          for r in records]),
+        "dead":           stats([r["dead"]             for r in records]),
+        "max_fire_cells": stats([r["max_fire_cells"]   for r in records]),
+    }
+
+    print(f"\n{'─'*62}")
+    for key in ("survival_rate", "steps_taken", "escaped", "dead"):
+        s = summary[key]
+        print(f"  {key:<16} mean={s['mean']:>8}  std={s['std']:>7}  "
+              f"min={s['min']:>7}  max={s['max']:>7}  median={s['median']:>8}")
+    print(f"{'═'*62}")
+
+    if save_results:
+        os.makedirs("result/astar_baseline", exist_ok=True)
+        ts  = datetime.now().strftime("%Y%m%d_%H%M%S")
+        tag = f"s{scenario}_{n_agents}ppl_{ts}"
+
+        csv_path  = f"result/astar_baseline/test_results_{tag}.csv"
+        json_path = f"result/astar_baseline/test_summary_{tag}.json"
+
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=records[0].keys())
+            writer.writeheader()
+            writer.writerows(records)
+
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(summary, f, ensure_ascii=False, indent=2)
+
+        print(f"\n  에피소드 기록: {csv_path}")
+        print(f"  통계 요약    : {json_path}")
+
+    return records, summary
+
+
+# ══════════════════════════════════════════════
+# 진입점
+# ══════════════════════════════════════════════
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="A* 규칙 기반 베이스라인")
+    parser.add_argument("--scenario",      type=int,  default=1, choices=[1, 2, 3, 4])
+    parser.add_argument("--all-scenarios", action="store_true", help="시나리오 1~4 전부 실행")
+    parser.add_argument("--n",             type=int,  default=10, help="인원수")
+    parser.add_argument("--episodes",      type=int,  default=30, help="에피소드 수")
+    parser.add_argument("--no-save",       action="store_true")
+    parser.add_argument("--render",        action="store_true")
+    args = parser.parse_args()
+
+    scenarios = [1, 2, 3, 4] if args.all_scenarios else [args.scenario]
+
+    all_summaries = {}
+    for sc in scenarios:
+        _, summary = run_test(
+            scenario=sc,
+            n_agents=args.n,
+            n_episodes=args.episodes,
+            save_results=not args.no_save,
+            render=args.render,
+        )
+        all_summaries[sc] = summary
+
+    if args.all_scenarios:
+        print(f"\n{'═'*62}")
+        print("  전체 시나리오 생존율 (A* 규칙 기반 베이스라인)")
+        print(f"{'─'*62}")
+        for sc, s in all_summaries.items():
+            sr = s["survival_rate"]
+            print(f"  S{sc} {s['scenario_name']:<8} | "
+                  f"생존율 {sr['mean']:.1%} ± {sr['std']:.1%}  "
+                  f"(min {sr['min']:.0%} ~ max {sr['max']:.0%})")
+        print(f"{'═'*62}")
+        print("\n  ※ PPO 모델 결과와 비교하려면:")
+        print("    python train.py --mode test --test-n 10 --test-scenario X --test-episodes 30")
