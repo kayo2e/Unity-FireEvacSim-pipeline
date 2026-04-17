@@ -1,0 +1,49 @@
+{
+  "model": "fire_evac_model_10ppl",
+  "scenario": 2,
+  "scenario_name": "화재 확산",
+  "n_agents": 10,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.9633,
+    "std": 0.0547,
+    "min": 0.8,
+    "max": 1.0,
+    "median": 1.0
+  },
+  "total_reward": {
+    "mean": 333.239,
+    "std": 28.6349,
+    "min": 260.99,
+    "max": 380.38,
+    "median": 340.39
+  },
+  "steps_taken": {
+    "mean": 20.2,
+    "std": 5.0359,
+    "min": 11.0,
+    "max": 35.0,
+    "median": 19.5
+  },
+  "escaped": {
+    "mean": 9.6333,
+    "std": 0.5467,
+    "min": 8.0,
+    "max": 10.0,
+    "median": 10.0
+  },
+  "dead": {
+    "mean": 0.3667,
+    "std": 0.5467,
+    "min": 0.0,
+    "max": 2.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 42.8667,
+    "std": 17.9587,
+    "min": 12.0,
+    "max": 83.0,
+    "median": 43.5
+  }
+}
