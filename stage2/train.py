@@ -99,7 +99,7 @@ SCENARIO_CONFIGS = {
     1: {"name":"초기 화재",  "fire_count":(1,1),  "spread_prob":0.05, "smoke_radius":0, "exit_block_prob":0.0, "collapse_prob":0.0, "fire_fixed":[(3,1)],   "max_steps":200},
     2: {"name":"화재 확산",  "fire_count":(2,3),  "spread_prob":0.12, "smoke_radius":2, "exit_block_prob":0.0, "collapse_prob":0.0, "fire_fixed":None,     "max_steps":250},
     3: {"name":"출구 위협",  "fire_count":(1,1),  "spread_prob":0.25, "smoke_radius":4, "exit_block_prob":0.0, "collapse_prob":0.0, "fire_fixed":[(8,10)], "max_steps":350},
-    4: {"name":"폭발 붕괴",  "fire_count":(3,6),  "spread_prob":0.20, "smoke_radius":4, "exit_block_prob":0.3, "collapse_prob":0.3, "fire_fixed":None,     "max_steps":600},
+    4: {"name":"폭발 붕괴",  "fire_count":(3,6),  "spread_prob":0.20, "smoke_radius":4, "exit_block_prob":0.2, "collapse_prob":0.15, "fire_fixed":None,     "max_steps":600},
 }
 
 
@@ -122,14 +122,12 @@ class FireEvacEnv(gym.Env):
     """
     metadata = {"render_modes": ["human"]}
 
-    def __init__(self, scenario: int = 1, n_agents: int = 10,
-                 render_mode: Optional[str] = None, legacy_obs: bool = False):
+    def __init__(self, scenario: int = 1, n_agents: int = 10, render_mode: Optional[str] = None):
         super().__init__()
         self.scenario    = scenario
         self.cfg         = SCENARIO_CONFIGS[scenario]
         self.n_agents    = n_agents
         self.render_mode = render_mode
-        self.legacy_obs  = legacy_obs  # True: 3600차원 (구 모델 호환), False: 3606차원
         self.ROWS, self.COLS = BASE_GRID.shape
 
         # 유도등: 모든 walkable 셀 (출구 제외)
@@ -141,9 +139,8 @@ class FireEvacEnv(gym.Env):
         self.light_idx = {cell: i for i, cell in enumerate(self.light_cells)}
 
         # [Q3] MlpPolicy용 1D 관측
-        # legacy_obs=False: 6채널×30×20 + 요약 피처 6개 = 3606차원 (신규)
-        # legacy_obs=True : 6채널×30×20                 = 3600차원 (구 모델 호환)
-        obs_size = 6 * self.ROWS * self.COLS + (0 if legacy_obs else 6)
+        # 6채널 × 30 × 20 = 3600 → flatten
+        obs_size = 6 * self.ROWS * self.COLS
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, shape=(obs_size,), dtype=np.float32
         )
@@ -160,9 +157,7 @@ class FireEvacEnv(gym.Env):
         self.fire_map = self.smoke_map = None
         self.people_data = self.light_dirs = self.blocked_exits = None
         self.step_count = self.escaped = self.dead = 0
-        self.exit_a_escaped = self.exit_b_escaped = 0
         self._bfs_dist = None
-        self._bfs_dist_a = self._bfs_dist_b = None  # 출구별 BFS (obs 요약 피처용)
         self.prev_fire_map = None
 
     def reset(self, seed=None, options=None):
@@ -190,9 +185,7 @@ class FireEvacEnv(gym.Env):
                 self.grid[cell[0], cell[1]] = WALL
 
         # BFS 거리 계산 — 출구까지 실제 경로 거리
-        self._bfs_dist   = self._compute_bfs()
-        self._bfs_dist_a = self._compute_bfs_specific(EXIT_A_POS)
-        self._bfs_dist_b = self._compute_bfs_specific(EXIT_B_POS)
+        self._bfs_dist = self._compute_bfs()
 
         # 화재
         self.fire_map = np.zeros((self.ROWS, self.COLS), dtype=np.float32)
@@ -222,7 +215,6 @@ class FireEvacEnv(gym.Env):
         self.light_dirs = self._compute_dirs_for_strategy(10.0, 10.0, 2.0)  # 초기값
         self.prev_fire_map = self.fire_map.copy()  # 초기 화재 상태 저장
         self.step_count = self.escaped = self.dead = 0
-        self.exit_a_escaped = self.exit_b_escaped = 0
         return self._get_obs(), self._get_info()
 
     # ──────────────────────────────────────────
@@ -251,10 +243,6 @@ class FireEvacEnv(gym.Env):
             if self.grid[r, c] == EXIT and (r, c) not in self.blocked_exits:
                 self.escaped += 1
                 reward += 20.0          # 탈출 완료 보상
-                if (r, c) in EXIT_A_POS:
-                    self.exit_a_escaped += 1
-                else:
-                    self.exit_b_escaped += 1
 
             # ── 화재 구역 진입 ──────────────────────────────────
             elif self.fire_map[r, c] > 0:
@@ -281,8 +269,6 @@ class FireEvacEnv(gym.Env):
         if self.prev_fire_map is None or not np.array_equal(self.fire_map, self.prev_fire_map):
             self.light_dirs  = self._compute_dirs_for_strategy(exit_a_cost, exit_b_cost, crowd_weight)
             self._bfs_dist   = self._compute_bfs_fire_aware()   # shaping reward용 거리 갱신
-            self._bfs_dist_a = self._compute_bfs_specific(EXIT_A_POS)  # obs 요약 피처용
-            self._bfs_dist_b = self._compute_bfs_specific(EXIT_B_POS)
             # 생존 인원의 prev_dist를 새 거리로 동기화 (부호 역전 방지)
             for p in self.people_data:
                 p["prev_dist"] = float(self._bfs_dist[p["pos"][0], p["pos"][1]])
@@ -306,10 +292,6 @@ class FireEvacEnv(gym.Env):
         if terminated or truncated:
             not_escaped = self.n_agents - self.escaped
             reward -= not_escaped * 5.0
-            # 출구 분산 보너스: 두 출구 모두 사용 시 +15
-            # A*는 개인 최단경로라 한 출구로 쏠림 → PPO가 균형 분배 학습 유도
-            if self.exit_a_escaped > 0 and self.exit_b_escaped > 0:
-                reward += 15.0
 
         return self._get_obs(), reward, terminated, truncated, self._get_info()
 
@@ -450,30 +432,6 @@ class FireEvacEnv(gym.Env):
             dirs[i] = self._bfs_best_from_dist(dist_combined, cell[0], cell[1])
         return dirs
 
-    def _fire_dist_to_exit(self, exit_positions):
-        """화재 셀에서 특정 출구까지의 최단 BFS 거리 (출구 위협 측정용)"""
-        valid_exits = [(r, c) for (r, c) in exit_positions
-                       if self.grid[r, c] == EXIT and (r, c) not in self.blocked_exits]
-        if not valid_exits:
-            return 0.0  # 출구 막힘 = 최대 위협
-        fire_cells = [(r, c) for r in range(self.ROWS) for c in range(self.COLS)
-                      if self.fire_map[r, c] > 0]
-        if not fire_cells:
-            return 30.0  # 화재 없음 = 위협 없음
-        dist = np.full((self.ROWS, self.COLS), 9999.0)
-        q = deque()
-        for (r, c) in fire_cells:
-            dist[r, c] = 0; q.append((r, c))
-        while q:
-            r, c = q.popleft()
-            for dr, dc in DELTA.values():
-                nr, nc = r + dr, c + dc
-                if (0 <= nr < self.ROWS and 0 <= nc < self.COLS
-                        and dist[nr, nc] == 9999
-                        and self.grid[nr, nc] in WALKABLE):
-                    dist[nr, nc] = dist[r, c] + 1; q.append((nr, nc))
-        return float(min(dist[r, c] for (r, c) in valid_exits))
-
     def _get_walkable(self):
         return [(r, c) for r in range(self.ROWS) for c in range(self.COLS)
                 if self.grid[r, c] in WALKABLE and self.grid[r, c] != EXIT]
@@ -492,34 +450,7 @@ class FireEvacEnv(gym.Env):
         mx = max(mx, 1.0)  # divide-by-zero 방지
         normalized_dist = np.clip(self._bfs_dist / mx, 0, 1)
         obs[5] = 1.0 - normalized_dist
-        flat = obs.flatten()
-
-        # ── 요약 피처 6개 (3606차원) ─────────────────────────────
-        # MLP가 3600 픽셀에서 직접 추출하기 어려운 핵심 정보를 미리 계산해서 제공
-        fire_dist_a = self._fire_dist_to_exit(EXIT_A_POS)
-        fire_dist_b = self._fire_dist_to_exit(EXIT_B_POS)
-
-        # 출구 A 쪽이 더 가까운 생존 인원 비율 (분산 유도 신호)
-        people_near_a = sum(
-            1 for p in self.people_data
-            if (self._bfs_dist_a is not None
-                and self._bfs_dist_b is not None
-                and self._bfs_dist_a[p["pos"][0], p["pos"][1]]
-                    <= self._bfs_dist_b[p["pos"][0], p["pos"][1]])
-        ) / max(self.n_agents, 1)
-
-        extra = np.array([
-            float(np.clip(fire_dist_a / 30.0, 0.0, 1.0)),  # 출구 A 화재 위협 (0=위험, 1=안전)
-            float(np.clip(fire_dist_b / 30.0, 0.0, 1.0)),  # 출구 B 화재 위협
-            float(people_near_a),                            # A 쪽 인원 비율
-            float(self.escaped / max(self.n_agents, 1)),    # 탈출 완료 비율
-            float(self.dead    / max(self.n_agents, 1)),    # 사망 비율
-            float(self.step_count / self.cfg["max_steps"]), # 시간 경과 비율 (urgency)
-        ], dtype=np.float32)
-
-        if self.legacy_obs:
-            return flat
-        return np.concatenate([flat, extra])
+        return obs.flatten()  # ★ MlpPolicy를 위해 flatten
 
     def _get_info(self):
         return {
@@ -554,12 +485,10 @@ class FireEvacEnv(gym.Env):
 # 커리큘럼 래퍼
 # ══════════════════════════════════════════════
 class EvacCurriculumWrapper(gym.Wrapper):
-    def __init__(self, n_agents: int = 10, threshold: float = 0.50, window: int = 20,
-                 legacy_obs: bool = False):
+    def __init__(self, n_agents: int = 10, threshold: float = 0.50, window: int = 20):
         self.current_scenario = 1
         self.n_agents = n_agents
-        self.legacy_obs = legacy_obs
-        env = FireEvacEnv(scenario=1, n_agents=n_agents, legacy_obs=legacy_obs)
+        env = FireEvacEnv(scenario=1, n_agents=n_agents)
         super().__init__(env)
         self.threshold = threshold; self.window = window; self.recent = []
 
@@ -571,8 +500,7 @@ class EvacCurriculumWrapper(gym.Wrapper):
             avg = sum(self.recent) / len(self.recent)
             if len(self.recent) == self.window and avg >= self.threshold and self.current_scenario < len(SCENARIO_CONFIGS):
                 self.current_scenario += 1
-                self.env = FireEvacEnv(scenario=self.current_scenario, n_agents=self.n_agents,
-                                       legacy_obs=self.legacy_obs)
+                self.env = FireEvacEnv(scenario=self.current_scenario, n_agents=self.n_agents)
                 self.recent = []
                 print(f"\n[커리큘럼] ★ {self.current_scenario}단계 승급! ({self.env.cfg['name']}) | 생존율 {avg:.0%}")
         return obs, rew, term, trunc, info
@@ -623,9 +551,9 @@ class EvacTrainCallback(BaseCallback):
 # ══════════════════════════════════════════════
 # 병렬 환경 팩토리
 # ══════════════════════════════════════════════
-def make_env(n_agents: int, seed: int, legacy_obs: bool = False):
+def make_env(n_agents: int, seed: int):
     def _init():
-        env = EvacCurriculumWrapper(n_agents=n_agents, legacy_obs=legacy_obs)
+        env = EvacCurriculumWrapper(n_agents=n_agents)
         env.reset(seed=seed)
         return env
     return _init
@@ -634,8 +562,7 @@ def make_env(n_agents: int, seed: int, legacy_obs: bool = False):
 # ══════════════════════════════════════════════
 # 학습
 # ══════════════════════════════════════════════
-def train_fire_evac(person_counts=(10, 30, 50), total_timesteps=300_000, n_envs=None,
-                    legacy_obs: bool = False):
+def train_fire_evac(person_counts=(10, 30, 50), total_timesteps=300_000, n_envs=None):
     import torch
 
     n_cpu = __import__('multiprocessing').cpu_count()
@@ -659,7 +586,7 @@ def train_fire_evac(person_counts=(10, 30, 50), total_timesteps=300_000, n_envs=
     for n in person_counts:
         print(f"\n{'─'*62}\n인원수 {n}명 | 커리큘럼 학습 시작\n{'─'*62}")
 
-        env_fns = [make_env(n_agents=n, seed=i, legacy_obs=legacy_obs) for i in range(n_envs)]
+        env_fns = [make_env(n_agents=n, seed=i) for i in range(n_envs)]
         raw_env = (DummyVecEnv(env_fns) if platform.system() == "Windows"
                    else SubprocVecEnv(env_fns))
         vec_env = VecNormalize(raw_env, norm_obs=True, norm_reward=False, clip_obs=10.0)
@@ -704,7 +631,7 @@ def train_fire_evac(person_counts=(10, 30, 50), total_timesteps=300_000, n_envs=
 # 테스트
 # ══════════════════════════════════════════════
 def test_fire_evac(n_agents: int = 10, scenario: int = 1, n_episodes: int = 10,
-                   save_results: bool = True, render: bool = False, legacy_obs: bool = False):
+                   save_results: bool = True, render: bool = False):
     import os, csv, json
     from datetime import datetime
 
@@ -714,8 +641,7 @@ def test_fire_evac(n_agents: int = 10, scenario: int = 1, n_episodes: int = 10,
     model = PPO.load(model_path)
 
     render_mode = "human" if render else None
-    env     = FireEvacEnv(scenario=scenario, n_agents=n_agents,
-                          render_mode=render_mode, legacy_obs=legacy_obs)
+    env     = FireEvacEnv(scenario=scenario, n_agents=n_agents, render_mode=render_mode)
     vec_env = DummyVecEnv([lambda: env])
     if os.path.exists(vecnorm_path):
         vec_env = VecNormalize.load(vecnorm_path, vec_env)
@@ -834,21 +760,18 @@ if __name__ == "__main__":
     parser.add_argument("--test-episodes", type=int,  default=10)
     parser.add_argument("--no-save",       action="store_true")
     parser.add_argument("--render",        action="store_true")
-    parser.add_argument("--legacy-obs",    action="store_true",
-                        help="3600차원 obs 사용 (구 모델 호환용)")
     args = parser.parse_args()
 
     if args.mode == "check":
         print("환경 검증 중...")
-        env = FireEvacEnv(scenario=1, n_agents=10, legacy_obs=args.legacy_obs)
+        env = FireEvacEnv(scenario=1, n_agents=10)
         check_env(env)
         print(f"관측 크기: {env.observation_space.shape} (MlpPolicy용 flatten)")
         print(f"유도등 수: {env.n_lights}개")
         print("환경 검증 완료!")
 
     elif args.mode == "train":
-        train_fire_evac(person_counts=args.people, total_timesteps=args.steps,
-                        n_envs=args.n_envs, legacy_obs=args.legacy_obs)
+        train_fire_evac(person_counts=args.people, total_timesteps=args.steps, n_envs=args.n_envs)
 
     elif args.mode == "test":
         test_fire_evac(
@@ -857,5 +780,4 @@ if __name__ == "__main__":
             n_episodes=args.test_episodes,
             save_results=not args.no_save,
             render=args.render,
-            legacy_obs=args.legacy_obs,
         )
