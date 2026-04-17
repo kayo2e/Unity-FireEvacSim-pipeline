@@ -1,0 +1,49 @@
+{
+  "model": "fire_evac_model_10ppl",
+  "scenario": 1,
+  "scenario_name": "초기 화재",
+  "n_agents": 10,
+  "n_episodes": 1000,
+  "survival_rate": {
+    "mean": 0.9991,
+    "std": 0.0094,
+    "min": 0.9,
+    "max": 1.0,
+    "median": 1.0
+  },
+  "total_reward": {
+    "mean": 332.2092,
+    "std": 23.0507,
+    "min": 270.48,
+    "max": 400.46,
+    "median": 331.84
+  },
+  "steps_taken": {
+    "mean": 18.199,
+    "std": 4.1383,
+    "min": 8.0,
+    "max": 33.0,
+    "median": 18.0
+  },
+  "escaped": {
+    "mean": 9.991,
+    "std": 0.0944,
+    "min": 9.0,
+    "max": 10.0,
+    "median": 10.0
+  },
+  "dead": {
+    "mean": 0.009,
+    "std": 0.0944,
+    "min": 0.0,
+    "max": 1.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 3.294,
+    "std": 1.7954,
+    "min": 1.0,
+    "max": 12.0,
+    "median": 3.0
+  }
+}

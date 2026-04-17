@@ -1,0 +1,49 @@
+{
+  "model": "fire_evac_model_10ppl",
+  "scenario": 4,
+  "scenario_name": "폭발 붕괴",
+  "n_agents": 10,
+  "n_episodes": 1000,
+  "survival_rate": {
+    "mean": 0.5379,
+    "std": 0.2331,
+    "min": 0.0,
+    "max": 1.0,
+    "median": 0.6
+  },
+  "total_reward": {
+    "mean": 145.019,
+    "std": 103.0425,
+    "min": -102.09,
+    "max": 504.27,
+    "median": 147.765
+  },
+  "steps_taken": {
+    "mean": 459.433,
+    "std": 246.8408,
+    "min": 11.0,
+    "max": 600.0,
+    "median": 600.0
+  },
+  "escaped": {
+    "mean": 5.379,
+    "std": 2.331,
+    "min": 0.0,
+    "max": 10.0,
+    "median": 6.0
+  },
+  "dead": {
+    "mean": 3.101,
+    "std": 2.1892,
+    "min": 0.0,
+    "max": 10.0,
+    "median": 3.0
+  },
+  "max_fire_cells": {
+    "mean": 187.652,
+    "std": 60.9705,
+    "min": 8.0,
+    "max": 272.0,
+    "median": 213.0
+  }
+}
