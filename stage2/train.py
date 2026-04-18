@@ -47,6 +47,14 @@ WALKABLE = {EMPTY, EXIT, STAIR, TOILET, ROOM}
 N, S, E, W = 0, 1, 2, 3
 DELTA = {N: (-1, 0), S: (1, 0), E: (0, 1), W: (0, -1)}
 
+# ── 병목(Bottleneck) 파라미터 ──────────────────────────────────────────
+# 실제 피난 시뮬레이션에서 출구·복도는 처리량 한계가 존재:
+#   - Henderson(1974): 보행자 출구 처리율 ≈ 1~2명/스텝
+#   - 복도 점유 밀도가 4명/m² 초과 시 이동 속도 급감 (Fruin, 1971)
+EXIT_CAPACITY = 2   # 출구 셀당 스텝당 최대 탈출 인원 (한 셀 = 문 폭 1유닛)
+CELL_CAPACITY = 3   # 복도 셀당 최대 동시 점유 인원 (초과 시 이동 차단)
+QUEUE_RADIUS  = 4   # 출구 혼잡도 피처(F7/F8) 측정 반경 (BFS 거리 기준)
+
 # ══════════════════════════════════════════════
 # BASE_GRID: 13/13 방 양방향 수정본
 # ══════════════════════════════════════════════
@@ -139,9 +147,10 @@ class FireEvacEnv(gym.Env):
         self.light_idx = {cell: i for i, cell in enumerate(self.light_cells)}
 
         # [Q3] MlpPolicy용 1D 관측
-        # 6채널 × 30 × 20 = 3600 + 요약 피처 6개 = 3606
+        # 6채널 × 30 × 20 = 3600 + 요약 피처 8개 = 3608
         # (Mnih et al., 2015): raw pixel보다 사전 계산 피처가 학습 속도·성능 향상
-        obs_size = 6 * self.ROWS * self.COLS + 6
+        # F7/F8: 출구별 근접 혼잡도 → PPO가 병목 회피·분산 유도를 학습하는 핵심 신호
+        obs_size = 6 * self.ROWS * self.COLS + 8
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, shape=(obs_size,), dtype=np.float32
         )
@@ -162,6 +171,7 @@ class FireEvacEnv(gym.Env):
         self._bfs_dist = None
         self._dist_to_exit_A = self._dist_to_exit_B = None
         self.prev_fire_map = None
+        self._occupancy: dict = {}   # 셀별 현재 점유 인원 수 (병목 계산용)
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -224,10 +234,15 @@ class FireEvacEnv(gym.Env):
         self.prev_fire_map = self.fire_map.copy()  # 초기 화재 상태 저장
         self.step_count = self.escaped = self.dead = 0
         self.escaped_A = self.escaped_B = 0
+        # 초기 점유 맵 구성
+        self._occupancy = {}
+        for p in self.people_data:
+            pos = p["pos"]
+            self._occupancy[pos] = self._occupancy.get(pos, 0) + 1
         return self._get_obs(), self._get_info()
 
     # ──────────────────────────────────────────
-    # step: Q1 핵심 — EXIT 도달이 목표
+    # step: 병목(Bottleneck) + 분산유도 포함
     # ──────────────────────────────────────────
     def step(self, action: np.ndarray):
         exit_a_cost  = float(action[0])
@@ -237,35 +252,46 @@ class FireEvacEnv(gym.Env):
         self.step_count += 1
         reward = 0.0
 
+        # ── 병목 초기화 ──────────────────────────────────────────
+        # EXIT_CAPACITY: 이번 스텝에 각 출구 셀이 통과시킬 수 있는 최대 인원
+        exit_quota = {pos: EXIT_CAPACITY
+                      for pos in EXIT_A_POS + EXIT_B_POS
+                      if pos not in self.blocked_exits}
+
         next_people = []
         for p in self.people_data:
-            # 속도 누적 → 1.0 넘으면 실제 이동
+            # 속도 누적 → 1.0 넘으면 이동 시도
             p["accum"] += p["speed"]
             if p["accum"] >= 1.0:
-                p["pos"] = self._move_person(p["pos"])
+                old_pos = p["pos"]
+                new_pos, exited = self._attempt_move(old_pos, exit_quota)
+                # 점유 맵 갱신
+                self._occupancy[old_pos] = max(0, self._occupancy.get(old_pos, 0) - 1)
+                if not exited:
+                    self._occupancy[new_pos] = self._occupancy.get(new_pos, 0) + 1
+                p["pos"] = new_pos
                 p["accum"] -= 1.0
+
+                if exited:
+                    # ── EXIT 도달 = 탈출 성공 ────────────────────
+                    self.escaped += 1
+                    if new_pos in EXIT_A_POS:
+                        self.escaped_A += 1
+                    else:
+                        self.escaped_B += 1
+                    reward += 20.0
+                    continue  # 탈출자는 next_people에 추가 안 함
 
             r, c = p["pos"]
             cur_dist = float(self._bfs_dist[r, c])
 
-            # ── [Q1] EXIT 셀 도달 = 탈출 성공 ─────────────────
-            if self.grid[r, c] == EXIT and (r, c) not in self.blocked_exits:
-                self.escaped += 1
-                if (r, c) in EXIT_A_POS:
-                    self.escaped_A += 1
-                else:
-                    self.escaped_B += 1
-                reward += 20.0          # 탈출 완료 보상
-
-            # ── 화재 구역 진입 ──────────────────────────────────
-            elif self.fire_map[r, c] > 0:
+            if self.fire_map[r, c] > 0:
+                # ── 화재 구역 진입 ──────────────────────────────
                 self.dead += 1
                 reward -= 8.0
-
-            # ── 생존 중 이동 ─────────────────────────────────────
+                self._occupancy[p["pos"]] = max(0, self._occupancy.get(p["pos"], 0) - 1)
             else:
-                # 출구로 가까워지면 +, 멀어지면 - (shaping reward)
-                # ★ 이것이 RL이 "어떤 방향이 출구 방향인지" 학습하는 핵심 신호
+                # ── 생존 중 이동 (shaping reward) ──────────────
                 delta = p["prev_dist"] - cur_dist
                 urgency = 1.0 + (self.step_count / self.cfg["max_steps"]) * 2.0
                 reward += delta * 2.0 * urgency
@@ -278,11 +304,10 @@ class FireEvacEnv(gym.Env):
         self._spread_fire()
         self._spread_smoke()
 
-        # 동적 최적화: 화재가 변했으면 유도등 방향 + shaping 거리 동시 재계산
+        # 동적 최적화: 화재 변화 시 유도등·거리 재계산
         if self.prev_fire_map is None or not np.array_equal(self.fire_map, self.prev_fire_map):
-            self.light_dirs  = self._compute_dirs_for_strategy(exit_a_cost, exit_b_cost, crowd_weight)
-            self._bfs_dist   = self._compute_bfs_fire_aware()   # shaping reward용 거리 갱신
-            # 생존 인원의 prev_dist를 새 거리로 동기화 (부호 역전 방지)
+            self.light_dirs = self._compute_dirs_for_strategy(exit_a_cost, exit_b_cost, crowd_weight)
+            self._bfs_dist  = self._compute_bfs_fire_aware()
             for p in self.people_data:
                 p["prev_dist"] = float(self._bfs_dist[p["pos"][0], p["pos"][1]])
             self.prev_fire_map = self.fire_map.copy()
@@ -291,7 +316,9 @@ class FireEvacEnv(gym.Env):
         for p in self.people_data:
             r, c = p["pos"]
             if self.fire_map[r, c] > 0:
-                self.dead += 1; reward -= 8.0
+                self.dead += 1
+                reward -= 8.0
+                self._occupancy[p["pos"]] = max(0, self._occupancy.get(p["pos"], 0) - 1)
             else:
                 alive.append(p)
         self.people_data = alive
@@ -299,20 +326,46 @@ class FireEvacEnv(gym.Env):
         terminated = len(self.people_data) == 0
         truncated  = self.step_count >= self.cfg["max_steps"]
 
-        # 에피소드 종료 시 미탈출 인원 전체에 패널티
-        # - 잔류(타임아웃): 아직 살아있지만 못 나간 인원 → -5.0
-        # - 사망은 이미 스텝마다 -8.0 처리됨
         if terminated or truncated:
             not_escaped = self.n_agents - self.escaped
             reward -= not_escaped * 5.0
-            # 출구 분산 보너스: 두 출구 모두 사용 시 +15
-            # A*는 한 출구에 인원이 쏠리는 경향 → PPO가 글로벌 분배 학습 유도
+            # 분산 보너스: 두 출구 모두 사용 시 +15
+            # ★ A*는 EXIT_CAPACITY 병목에서 한 출구에 쏠려 큐가 생김
+            #   PPO는 exit_A_cost / exit_B_cost 차별화로 부하 분산을 학습
             if self.escaped_A > 0 and self.escaped_B > 0:
                 reward += 15.0
 
         return self._get_obs(), reward, terminated, truncated, self._get_info()
 
+    def _attempt_move(self, pos, exit_quota: dict):
+        """
+        병목 인식 이동.
+        - EXIT 셀: exit_quota 잔여분 있을 때만 진입 → 탈출 성공 반환
+        - 일반 셀: CELL_CAPACITY 초과 시 이동 차단 (복도 혼잡 병목)
+        Returns: (new_pos, exited: bool)
+        """
+        r, c = pos
+        pref = (int(self.light_dirs[self.light_idx[(r, c)]])
+                if (r, c) in self.light_idx else self._bfs_best(r, c))
+        for d in [pref] + [x for x in (N, S, E, W) if x != pref]:
+            dr, dc = DELTA[d]
+            nr, nc = r + dr, c + dc
+            if not self._passable(nr, nc):
+                continue
+            # EXIT 셀: 처리량 한계 확인
+            if self.grid[nr, nc] == EXIT and (nr, nc) not in self.blocked_exits:
+                if exit_quota.get((nr, nc), 0) > 0:
+                    exit_quota[(nr, nc)] -= 1
+                    return (nr, nc), True   # 탈출 성공
+                else:
+                    continue                # 이 EXIT은 이번 스텝 만원, 다른 방향 시도
+            # 일반 복도 셀: 점유 한계 확인
+            if self._occupancy.get((nr, nc), 0) < CELL_CAPACITY:
+                return (nr, nc), False      # 이동 성공
+        return pos, False                   # 모든 방향 차단 → 제자리 대기
+
     def _move_person(self, pos):
+        """하위 호환용 (render 등 내부 호출). 점유 무시 단순 이동."""
         r, c = pos
         pref = (int(self.light_dirs[self.light_idx[(r, c)]])
                 if (r, c) in self.light_idx else self._bfs_best(r, c))
@@ -509,7 +562,22 @@ class FireEvacEnv(gym.Env):
         f5 = self.dead / self.n_agents
         f6 = self.step_count / self.cfg["max_steps"]
 
-        scalar_feats = np.array([f1, f2, f3, f4, f5, f6], dtype=np.float32)
+        # F7/F8: 출구별 근접 혼잡도 (QUEUE_RADIUS 이내 생존 인원 비율)
+        # ★ 핵심 병목 신호: PPO는 이 값으로 exit_A_cost/exit_B_cost를 차별화해
+        #   한쪽 출구 대기열이 쌓이면 반대편으로 분산시키는 정책을 학습한다.
+        #   A*는 이 정보를 활용하지 않으므로 병목 발생 시 분산 유도 불가.
+        n_alive = len(self.people_data)
+        if n_alive == 0 or self._dist_to_exit_A is None or self._dist_to_exit_B is None:
+            f7, f8 = 0.0, 0.0
+        else:
+            near_a = sum(1 for p in self.people_data
+                         if self._dist_to_exit_A[p["pos"][0], p["pos"][1]] <= QUEUE_RADIUS)
+            near_b = sum(1 for p in self.people_data
+                         if self._dist_to_exit_B[p["pos"][0], p["pos"][1]] <= QUEUE_RADIUS)
+            f7 = near_a / n_alive
+            f8 = near_b / n_alive
+
+        scalar_feats = np.array([f1, f2, f3, f4, f5, f6, f7, f8], dtype=np.float32)
         return np.concatenate([obs.flatten(), scalar_feats])
 
     def _get_info(self):
@@ -517,6 +585,7 @@ class FireEvacEnv(gym.Env):
             "scenario": self.scenario, "scenario_name": self.cfg["name"],
             "step": self.step_count, "n_agents": self.n_agents,
             "escaped": self.escaped, "dead": self.dead,
+            "escaped_A": self.escaped_A, "escaped_B": self.escaped_B,
             "remaining": len(self.people_data),
             "survival_rate": self.escaped / self.n_agents if self.n_agents else 0.0,
             "fire_cells": int(self.fire_map.sum()),
@@ -737,6 +806,8 @@ def test_fire_evac(n_agents: int = 10, scenario: int = 1, n_episodes: int = 10,
             "scenario_name": env.cfg["name"],
             "n_agents":      n_agents,
             "escaped":       info["escaped"],
+            "escaped_A":     info.get("escaped_A", 0),
+            "escaped_B":     info.get("escaped_B", 0),
             "dead":          info["dead"],
             "remaining":     info["remaining"],
             "survival_rate": round(info["survival_rate"], 4),
@@ -771,6 +842,8 @@ def test_fire_evac(n_agents: int = 10, scenario: int = 1, n_episodes: int = 10,
         "total_reward":  stats([r["total_reward"]   for r in records]),
         "steps_taken":   stats([r["steps_taken"]    for r in records]),
         "escaped":       stats([r["escaped"]         for r in records]),
+        "escaped_A":     stats([r["escaped_A"]       for r in records]),
+        "escaped_B":     stats([r["escaped_B"]       for r in records]),
         "dead":          stats([r["dead"]            for r in records]),
         "max_fire_cells":stats([r["max_fire_cells"]  for r in records]),
     }
