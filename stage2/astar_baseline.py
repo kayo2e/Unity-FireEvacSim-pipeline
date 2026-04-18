@@ -10,11 +10,21 @@ PPO 모델과의 공정한 성능 비교를 위한 베이스라인.
 제어 메커니즘(유도등 → 사람 이동)은 완전히 동일.
 차이는 비용 결정 방식: 학습된 정책 vs 규칙 기반 휴리스틱.
 
-[A* 규칙 기반 정책]
-  - 각 출구까지 화재 BFS 거리 계산
-  - 출구에 화재가 가까울수록 해당 출구 비용(cost) 증가
-  - 출구가 완전히 차단되면 최대 비용(50.0) 부여
-  - crowd_weight는 잔여 인원 비율에 비례하여 동적 조정
+[병목(Bottleneck) 설계]
+  - EXIT_CAPACITY: 출구 셀당 스텝당 최대 탈출 인원 제한 (train.py와 동일 환경)
+  - CELL_CAPACITY: 복도 셀당 최대 점유 인원 제한
+  → 두 모델 모두 동일한 병목 환경에서 평가됨 (공정 비교)
+
+[A* 규칙 기반 정책의 한계 — 분산유도 불가]
+  - 각 출구까지 화재 BFS 거리만 고려 (출구별 큐 길이 무시)
+  - crowd_weight는 전체 잔여 인원 비율로 결정 (출구별 혼잡도 미분화)
+  - 병목 발생 시 모든 인원이 가까운 출구에 집중 → 대기열 형성 → 화재 도달 시 집단 사망
+  - F7/F8(출구 근접 혼잡도) 피처를 사용하지 않아 부하 분산 불가
+
+[PPO 모델의 강점]
+  - F7/F8 피처로 출구별 혼잡도를 실시간 관측
+  - exit_A_cost / exit_B_cost를 차별화해 혼잡한 출구를 우회
+  - 두 출구에 분산 탈출 시 +15 보상 → 분산 정책 학습
 
 실행:
     python astar_baseline.py --scenario 1 --n 10 --episodes 30
@@ -84,11 +94,13 @@ def rule_based_action(env: FireEvacEnv) -> np.ndarray:
     """
     현재 환경 상태를 보고 규칙으로 [exit_A_cost, exit_B_cost, crowd_weight] 결정.
 
-    규칙:
-      1. 각 출구까지 화재 BFS 거리 계산
-      2. 거리가 가까울수록 (위협이 클수록) cost 증가 (5.0 ~ 50.0)
-      3. 출구 차단 시 cost = 50.0 (최대 우회)
-      4. crowd_weight = 잔여 인원이 많을수록 높게 (분산 유도)
+    [A* 규칙 — 분산유도 불가 (베이스라인)]
+      1. 화재 BFS 거리 기반으로만 출구 비용 결정
+      2. 출구별 큐 길이(F7/F8) 미사용 → 혼잡도 인식 불가
+      3. crowd_weight는 전체 잔여 인원 비율로만 결정 (출구별 미분화)
+
+    ※ 병목 환경(EXIT_CAPACITY)에서 A*는 가장 가까운 출구에 인원이 집중되어
+      대기열이 형성되어도 이를 감지·분산하지 못한다. (PPO와의 핵심 차이)
     """
     dist_a = compute_fire_dist_to_exit(
         env.grid, env.fire_map, EXIT_A_POS, env.blocked_exits)
@@ -99,20 +111,18 @@ def rule_based_action(env: FireEvacEnv) -> np.ndarray:
     a_blocked = all(cell in env.blocked_exits for cell in EXIT_A_POS)
     b_blocked = all(cell in env.blocked_exits for cell in EXIT_B_POS)
 
-    # 화재 거리 → 비용 변환
-    # 거리 0~3: 매우 위험 → cost 50, 거리 10+: 안전 → cost 5
+    # 화재 거리 → 비용 변환 (출구 큐 길이는 고려 안 함)
     def dist_to_cost(d, blocked):
         if blocked:
             return 50.0
         d = min(d, 20.0)
-        # 거리가 짧을수록 cost 높게 (선형 역변환)
         cost = 50.0 - (d / 20.0) * 45.0
         return float(np.clip(cost, 5.0, 50.0))
 
-    exit_a_cost  = dist_to_cost(dist_a, a_blocked)
-    exit_b_cost  = dist_to_cost(dist_b, b_blocked)
+    exit_a_cost = dist_to_cost(dist_a, a_blocked)
+    exit_b_cost = dist_to_cost(dist_b, b_blocked)
 
-    # crowd_weight: 잔여 인원이 많을수록 분산 강화
+    # crowd_weight: 전체 잔여 인원 비율 — 출구별 혼잡도 미분화
     remaining_ratio = len(env.people_data) / max(env.n_agents, 1)
     crowd_weight = float(np.clip(0.5 + remaining_ratio * 4.5, 0.5, 5.0))
 
@@ -158,6 +168,8 @@ def run_test(scenario: int, n_agents: int = 10, n_episodes: int = 30,
             "scenario_name":  cfg["name"],
             "n_agents":       n_agents,
             "escaped":        info["escaped"],
+            "escaped_A":      info.get("escaped_A", 0),
+            "escaped_B":      info.get("escaped_B", 0),
             "dead":           info["dead"],
             "remaining":      info["remaining"],
             "survival_rate":  round(info["survival_rate"], 4),
@@ -194,6 +206,8 @@ def run_test(scenario: int, n_agents: int = 10, n_episodes: int = 30,
         "total_reward":   stats([r["total_reward"]    for r in records]),
         "steps_taken":    stats([r["steps_taken"]     for r in records]),
         "escaped":        stats([r["escaped"]          for r in records]),
+        "escaped_A":      stats([r["escaped_A"]        for r in records]),
+        "escaped_B":      stats([r["escaped_B"]        for r in records]),
         "dead":           stats([r["dead"]             for r in records]),
         "max_fire_cells": stats([r["max_fire_cells"]   for r in records]),
     }
