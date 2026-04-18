@@ -139,8 +139,9 @@ class FireEvacEnv(gym.Env):
         self.light_idx = {cell: i for i, cell in enumerate(self.light_cells)}
 
         # [Q3] MlpPolicy용 1D 관측
-        # 6채널 × 30 × 20 = 3600 → flatten
-        obs_size = 6 * self.ROWS * self.COLS
+        # 6채널 × 30 × 20 = 3600 + 요약 피처 6개 = 3606
+        # (Mnih et al., 2015): raw pixel보다 사전 계산 피처가 학습 속도·성능 향상
+        obs_size = 6 * self.ROWS * self.COLS + 6
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, shape=(obs_size,), dtype=np.float32
         )
@@ -157,7 +158,9 @@ class FireEvacEnv(gym.Env):
         self.fire_map = self.smoke_map = None
         self.people_data = self.light_dirs = self.blocked_exits = None
         self.step_count = self.escaped = self.dead = 0
+        self.escaped_A = self.escaped_B = 0
         self._bfs_dist = None
+        self._dist_to_exit_A = self._dist_to_exit_B = None
         self.prev_fire_map = None
 
     def reset(self, seed=None, options=None):
@@ -186,6 +189,11 @@ class FireEvacEnv(gym.Env):
 
         # BFS 거리 계산 — 출구까지 실제 경로 거리
         self._bfs_dist = self._compute_bfs()
+        # 출구별 정적 거리맵 (요약 피처 F1~F3용 — fire-agnostic, 에피소드 내 1회 계산)
+        valid_A = [p for p in EXIT_A_POS if p not in self.blocked_exits]
+        valid_B = [p for p in EXIT_B_POS if p not in self.blocked_exits]
+        self._dist_to_exit_A = self._compute_bfs_specific(valid_A)
+        self._dist_to_exit_B = self._compute_bfs_specific(valid_B)
 
         # 화재
         self.fire_map = np.zeros((self.ROWS, self.COLS), dtype=np.float32)
@@ -215,6 +223,7 @@ class FireEvacEnv(gym.Env):
         self.light_dirs = self._compute_dirs_for_strategy(10.0, 10.0, 2.0)  # 초기값
         self.prev_fire_map = self.fire_map.copy()  # 초기 화재 상태 저장
         self.step_count = self.escaped = self.dead = 0
+        self.escaped_A = self.escaped_B = 0
         return self._get_obs(), self._get_info()
 
     # ──────────────────────────────────────────
@@ -242,6 +251,10 @@ class FireEvacEnv(gym.Env):
             # ── [Q1] EXIT 셀 도달 = 탈출 성공 ─────────────────
             if self.grid[r, c] == EXIT and (r, c) not in self.blocked_exits:
                 self.escaped += 1
+                if (r, c) in EXIT_A_POS:
+                    self.escaped_A += 1
+                else:
+                    self.escaped_B += 1
                 reward += 20.0          # 탈출 완료 보상
 
             # ── 화재 구역 진입 ──────────────────────────────────
@@ -292,6 +305,10 @@ class FireEvacEnv(gym.Env):
         if terminated or truncated:
             not_escaped = self.n_agents - self.escaped
             reward -= not_escaped * 5.0
+            # 출구 분산 보너스: 두 출구 모두 사용 시 +15
+            # A*는 한 출구에 인원이 쏠리는 경향 → PPO가 글로벌 분배 학습 유도
+            if self.escaped_A > 0 and self.escaped_B > 0:
+                reward += 15.0
 
         return self._get_obs(), reward, terminated, truncated, self._get_info()
 
@@ -450,7 +467,50 @@ class FireEvacEnv(gym.Env):
         mx = max(mx, 1.0)  # divide-by-zero 방지
         normalized_dist = np.clip(self._bfs_dist / mx, 0, 1)
         obs[5] = 1.0 - normalized_dist
-        return obs.flatten()  # ★ MlpPolicy를 위해 flatten
+
+        # ── 요약 피처 6개 (3606 = 3600 + 6) ────────────────────────────
+        # Mnih et al.(2015): 사전 계산 피처가 raw pixel 대비 학습 속도·성능 향상
+        fire_cells = np.argwhere(self.fire_map > 0)
+        a_blocked = all(p in self.blocked_exits for p in EXIT_A_POS)
+        b_blocked = all(p in self.blocked_exits for p in EXIT_B_POS)
+
+        # F1: 출구 A 화재 위협 (0=위험/막힘, 1=안전)
+        if a_blocked:
+            f1 = 0.0
+        elif len(fire_cells) == 0 or self._dist_to_exit_A is None:
+            f1 = 1.0
+        else:
+            reachable_A = [float(self._dist_to_exit_A[r, c]) for r, c in fire_cells
+                           if self._dist_to_exit_A[r, c] < 9999]
+            f1 = float(np.clip(min(reachable_A) / 20.0, 0.0, 1.0)) if reachable_A else 1.0
+
+        # F2: 출구 B 화재 위협 (0=위험/막힘, 1=안전)
+        if b_blocked:
+            f2 = 0.0
+        elif len(fire_cells) == 0 or self._dist_to_exit_B is None:
+            f2 = 1.0
+        else:
+            reachable_B = [float(self._dist_to_exit_B[r, c]) for r, c in fire_cells
+                           if self._dist_to_exit_B[r, c] < 9999]
+            f2 = float(np.clip(min(reachable_B) / 20.0, 0.0, 1.0)) if reachable_B else 1.0
+
+        # F3: 출구 A 쪽이 더 가까운 생존 인원 비율
+        n_alive = len(self.people_data)
+        if n_alive == 0 or self._dist_to_exit_A is None or self._dist_to_exit_B is None:
+            f3 = 0.5
+        else:
+            n_near_a = sum(1 for p in self.people_data
+                           if self._dist_to_exit_A[p["pos"][0], p["pos"][1]]
+                           <= self._dist_to_exit_B[p["pos"][0], p["pos"][1]])
+            f3 = n_near_a / n_alive
+
+        # F4: 탈출 완료 비율  F5: 사망 비율  F6: 시간 경과(긴급도)
+        f4 = self.escaped / self.n_agents
+        f5 = self.dead / self.n_agents
+        f6 = self.step_count / self.cfg["max_steps"]
+
+        scalar_feats = np.array([f1, f2, f3, f4, f5, f6], dtype=np.float32)
+        return np.concatenate([obs.flatten(), scalar_feats])
 
     def _get_info(self):
         return {
@@ -578,7 +638,7 @@ def train_fire_evac(person_counts=(10, 30, 50), total_timesteps=300_000, n_envs=
     print(f"총 스텝        : {total_timesteps:,} / 모델")
     print(f"병렬 환경      : {n_envs}개")
     print(f"유도등         : {n_lights}개 셀")
-    print(f"Policy         : MlpPolicy (flatten 3600-dim)")
+    print(f"Policy         : MlpPolicy (flatten 3606-dim) | net_arch=[256,256]")
     print(f"학습 디바이스  : {device}")
     print(f"그리드 검증    : 13/13 방 양방향 출구 접근 가능")
     print("=" * 62)
@@ -598,14 +658,15 @@ def train_fire_evac(person_counts=(10, 30, 50), total_timesteps=300_000, n_envs=
             vec_env,
             device          = device,
             verbose         = 0,
-            n_steps         = 512,
+            n_steps         = 1024,          # 512→1024: S4 600스텝 에피소드 커버 (Schulman et al., 2016 GAE)
             batch_size      = 256,
-            n_epochs        = 4,
+            n_epochs        = 10,            # 4→10: 샘플 효율성 향상 (PPO 원논문 권장)
             gamma           = 0.99,
             learning_rate   = 3e-4,
             clip_range      = 0.2,
-            ent_coef        = 0.01,
+            ent_coef        = 0.02,          # 0.01→0.02: 탐색 강화, S3/S4 다양한 패턴 대응
             max_grad_norm   = 0.5,
+            policy_kwargs   = dict(net_arch=[256, 256]),  # 64×2→256×2: 3606-dim 처리 표현력 (Schulman et al., 2017)
             tensorboard_log = "./fire_evac_log/",
         )
 
