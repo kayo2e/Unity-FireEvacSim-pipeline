@@ -1,0 +1,63 @@
+{
+  "model": "fire_evac_model_50ppl",
+  "scenario": 3,
+  "scenario_name": "출구 위협",
+  "n_agents": 50,
+  "n_episodes": 1000,
+  "survival_rate": {
+    "mean": 0.7581,
+    "std": 0.0585,
+    "min": 0.56,
+    "max": 0.92,
+    "median": 0.76
+  },
+  "total_reward": {
+    "mean": 1183.2449,
+    "std": 132.9728,
+    "min": 752.92,
+    "max": 1569.56,
+    "median": 1184.24
+  },
+  "steps_taken": {
+    "mean": 27.54,
+    "std": 5.0949,
+    "min": 17.0,
+    "max": 53.0,
+    "median": 27.0
+  },
+  "escaped": {
+    "mean": 37.904,
+    "std": 2.9255,
+    "min": 28.0,
+    "max": 46.0,
+    "median": 38.0
+  },
+  "escaped_A": {
+    "mean": 2.513,
+    "std": 1.6037,
+    "min": 0.0,
+    "max": 8.0,
+    "median": 2.0
+  },
+  "escaped_B": {
+    "mean": 35.391,
+    "std": 2.9391,
+    "min": 24.0,
+    "max": 44.0,
+    "median": 35.0
+  },
+  "dead": {
+    "mean": 12.096,
+    "std": 2.9255,
+    "min": 4.0,
+    "max": 22.0,
+    "median": 12.0
+  },
+  "max_fire_cells": {
+    "mean": 98.202,
+    "std": 21.1163,
+    "min": 20.0,
+    "max": 153.0,
+    "median": 99.0
+  }
+}

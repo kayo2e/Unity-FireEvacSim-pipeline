@@ -10,9 +10,8 @@ Stage 1 (피난안내도 → numpy Grid Map) 으로 재구현.
   Step 1. 피난평면도 자동추출 (OpenCV Contours, 논문 §III-2)
   Step 2. 불필요 요소 제거  (HSV 마스킹, 논문 §III-4-1)
   Step 3. 텍스트 제거       (이진화 + 연결요소 분석, 논문 §III-4-2)
-  Step 4. 벽체 세선화/일반화 (Zhang-Suen + Lee + HoughLinesP, 논문 §III-4-3)
-  Step 5. 피난시설 탐지      (YOLOv10 대신 컬러/형태 기반 규칙 탐지 - 모델 없이)
-  Step 6. Grid Map 변환      (30×20 셀, 값 정의에 따라 인코딩)
+  Step 4. 벽체 세선화/일반화 (Zhang-Suen + HoughLinesP, 논문 §III-4-3)
+  Step 5. Grid Map 변환      (30×20 셀, 벽선 기준 0/1 인코딩)
 
 Grid 셀 값 (최소화):
   0 = 이동 가능  (복도, 방 내부, 화장실 등)
@@ -24,11 +23,9 @@ Grid 셀 값 (최소화):
 import cv2
 import numpy as np
 from skimage.morphology import skeletonize
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import json
 import os
+from typing import Optional
 
 # ──────────────────────────────────────────────
 # 설정
@@ -45,14 +42,6 @@ CELL_STAIR     = 3   # 계단 (이동 가능, 비용 높음)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEBUG_DIR = os.path.join(SCRIPT_DIR, "debug_steps")
 os.makedirs(DEBUG_DIR, exist_ok=True)
-
-# Hyperparameters
-SEGMENTATION_INPUT_SIZE = (512, 512)
-SEGMENTATION_THRESHOLD = 0.5
-FGSS_WEIGHTS_PATH = os.path.join(SCRIPT_DIR, "fgssnet_weights.pth")
-WALL_PROXIMITY_THRESHOLD = 8
-DENSITY_COST_SCALE = 2.0
-
 
 # ──────────────────────────────────────────────
 # 유틸
@@ -208,186 +197,73 @@ def remove_text(img_bgr: np.ndarray, wall_mask: np.ndarray) -> np.ndarray:
     return result
 
 
-# ──────────────────────────────────────────────
-# Step 4: FGSSNet 기반 벽체 세그멘테이션
-# ──────────────────────────────────────────────
-class DoubleConv(nn.Module):
-    def __init__(self, in_ch, out_ch):
-        super().__init__()
-        self.double_conv = nn.Sequential(
-            nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True),
-        )
-
-    def forward(self, x):
-        return self.double_conv(x)
-
-
-class Down(nn.Module):
-    def __init__(self, in_ch, out_ch):
-        super().__init__()
-        self.maxpool_conv = nn.Sequential(
-            nn.MaxPool2d(2),
-            DoubleConv(in_ch, out_ch),
-        )
-
-    def forward(self, x):
-        return self.maxpool_conv(x)
-
-
-class Up(nn.Module):
-    def __init__(self, in_ch, out_ch):
-        super().__init__()
-        self.up = nn.ConvTranspose2d(in_ch, out_ch, kernel_size=2, stride=2)
-        self.conv = DoubleConv(in_ch, out_ch)
-
-    def forward(self, x1, x2):
-        x1 = self.up(x1)
-        diffY = x2.size()[2] - x1.size()[2]
-        diffX = x2.size()[3] - x1.size()[3]
-        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
-                        diffY // 2, diffY - diffY // 2])
-        x = torch.cat([x2, x1], dim=1)
-        return self.conv(x)
-
-
-class FeatureGuideEncoder(nn.Module):
-    def __init__(self, in_ch=1, guide_dim=64):
-        super().__init__()
-        self.encoder = nn.Sequential(
-            DoubleConv(in_ch, 32),
-            nn.MaxPool2d(2),
-            DoubleConv(32, 64),
-            nn.AdaptiveAvgPool2d(1),
-        )
-        self.fc = nn.Linear(64, guide_dim)
-
-    def forward(self, x):
-        x = self.encoder(x)
-        x = x.view(x.size(0), -1)
-        return self.fc(x)
-
-
-class FGSSNet(nn.Module):
-    def __init__(self, in_ch=3, guide_dim=64, base_ch=32):
-        super().__init__()
-        self.inc = DoubleConv(in_ch, base_ch)
-        self.down1 = Down(base_ch, base_ch * 2)
-        self.down2 = Down(base_ch * 2, base_ch * 4)
-        self.down3 = Down(base_ch * 4, base_ch * 8)
-        self.guidance_proj = nn.Linear(guide_dim, base_ch * 8)
-        self.up1 = Up(base_ch * 8, base_ch * 4)
-        self.up2 = Up(base_ch * 4, base_ch * 2)
-        self.up3 = Up(base_ch * 2, base_ch)
-        self.outc = nn.Conv2d(base_ch, 1, kernel_size=1)
-        self.guidance_encoder = FeatureGuideEncoder(in_ch=1, guide_dim=guide_dim)
-
-    def forward(self, x, guide):
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-
-        guide_feat = self.guidance_proj(guide).view(-1, x4.size(1), 1, 1)
-        x4 = x4 + guide_feat
-
-        x = self.up1(x4, x3)
-        x = self.up2(x, x2)
-        x = self.up3(x, x1)
-        return torch.sigmoid(self.outc(x))
-
-
-def load_fgssnet_model(device: str = "cpu") -> FGSSNet:
-    model = FGSSNet().to(device)
-    if os.path.exists(FGSS_WEIGHTS_PATH):
-        try:
-            model.load_state_dict(torch.load(FGSS_WEIGHTS_PATH, map_location=device))
-            print(f"  [Step 4] FGSSNet weights loaded from {FGSS_WEIGHTS_PATH}")
-        except Exception as e:
-            print(f"  [Step 4] FGSSNet weight load failed: {e}. using random weights.")
-    else:
-        print("  [Step 4] FGSSNet weights not found, using untrained model as fallback.")
-    model.eval()
-    return model
-
-
-def segment_walls_fgssnet(img_bgr: np.ndarray, model: FGSSNet, device: str = "cpu") -> np.ndarray:
-    print("[Step 4] FGSSNet 벽체 세그멘테이션")
-    h, w = img_bgr.shape[:2]
-    resized = cv2.resize(img_bgr, SEGMENTATION_INPUT_SIZE, interpolation=cv2.INTER_AREA)
-    img_tensor = torch.from_numpy(resized.astype(np.float32) / 255.0).permute(2, 0, 1).unsqueeze(0).to(device)
-
-    gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-    patch = cv2.resize(gray, (128, 128), interpolation=cv2.INTER_AREA)
-    patch_tensor = torch.from_numpy(patch.astype(np.float32) / 255.0).unsqueeze(0).unsqueeze(0).to(device)
-
-    with torch.no_grad():
-        guide = model.guidance_encoder(patch_tensor)
-        prob = model(img_tensor, guide).squeeze().cpu().numpy()
-
-    prob = cv2.resize(prob, (w, h), interpolation=cv2.INTER_LINEAR)
-    prob_img = (prob * 255).astype(np.uint8)
-    mask = (prob > SEGMENTATION_THRESHOLD).astype(np.uint8) * 255
-
-    save_debug("step4_fgssnet_prob.png", prob_img)
-    save_debug("step4_fgssnet_mask.png", mask)
-    return mask
-
-
-def skeletonize_walls(img_bgr: np.ndarray) -> np.ndarray:
+def skeletonize_walls(img_bgr: np.ndarray, wall_prior: Optional[np.ndarray] = None) -> np.ndarray:
     """
     논문 §III-4-3: Zhang-Suen + Lee + HoughLinesP 세선화.
     Returns: 세선화된 1채널 이진 이미지 (255=벽선)
     """
     print("[Step 4] 세선화 및 일반화")
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
-    # 이진화
-    _, binary = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+    # 어두운 선/테두리 강조
+    binary = cv2.adaptiveThreshold(
+        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY_INV, 21, 4
+    )
+    save_debug("step4_binary_raw.png", binary)
 
-    # 모폴로지 클로징 - 수평/수직 방향 단락 보완
-    kh = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 1))
-    kv = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 9))
-    closed_h = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kh)
-    closed_v = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kv)
-    combined = cv2.bitwise_or(closed_h, closed_v)
+    # 수평/수직 구조만 우선 추출해 잡선 억제
+    h, w = binary.shape
+    h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (max(15, w // 35), 1))
+    v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, max(15, h // 40)))
+    horizontal = cv2.morphologyEx(binary, cv2.MORPH_OPEN, h_kernel)
+    vertical = cv2.morphologyEx(binary, cv2.MORPH_OPEN, v_kernel)
+    hv_mask = cv2.bitwise_or(horizontal, vertical)
 
-    # 형태학적 열림(Opening) - 작은 노이즈 사전 제거
-    k3 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    opened = cv2.morphologyEx(combined, cv2.MORPH_OPEN, k3)
+    # 끊긴 벽선 연결
+    hv_mask = cv2.morphologyEx(
+        hv_mask, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    )
 
-    # Zhang-Suen 세선화 (skimage)
-    bool_img = opened.astype(bool)
-    skel_combined = skeletonize(bool_img)
+    # Step2의 벽 후보 마스크를 prior로 사용해 비벽 영역 잡선 제거
+    if wall_prior is not None:
+        prior = cv2.dilate(
+            wall_prior,
+            cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5)),
+            iterations=1,
+        )
+        hv_mask = cv2.bitwise_and(hv_mask, prior)
 
-    # 연결요소 필터링 (3픽셀 이상)
-    skel_uint8 = (skel_combined * 255).astype(np.uint8)
-    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(skel_uint8)
-    filtered = np.zeros_like(skel_uint8)
-    for lbl in range(1, num_labels):
-        if stats[lbl, cv2.CC_STAT_AREA] >= 3:
-            filtered[labels == lbl] = 255
+    save_debug("step4_hv_mask.png", hv_mask)
 
-    # HoughLinesP - 단절 직선 구간 보완 (논문 표 5 파라미터)
+    # Zhang-Suen 세선화로 선폭 축소
+    skel_uint8 = (skeletonize(hv_mask.astype(bool)) * 255).astype(np.uint8)
+
+    # 긴 축정렬 직선만 남겨 구조선 재구성
+    line_canvas = np.zeros_like(skel_uint8)
     lines = cv2.HoughLinesP(
-        filtered, rho=1, theta=np.pi/180,
-        threshold=10, minLineLength=5, maxLineGap=3
+        skel_uint8, rho=1, theta=np.pi / 180,
+        threshold=30, minLineLength=35, maxLineGap=8
     )
     if lines is not None:
         for line in lines:
             x1, y1, x2, y2 = line[0]
-            cv2.line(filtered, (x1, y1), (x2, y2), 255, 1)
+            dx = abs(x2 - x1)
+            dy = abs(y2 - y1)
+            if dx > dy * 3 or dy > dx * 3:
+                cv2.line(line_canvas, (x1, y1), (x2, y2), 255, 1)
 
-    # 최종 노이즈 제거 (2픽셀 미만 고립점)
-    num_labels2, labels2, stats2, _ = cv2.connectedComponentsWithStats(filtered)
-    final_skel = np.zeros_like(filtered)
-    for lbl in range(1, num_labels2):
-        if stats2[lbl, cv2.CC_STAT_AREA] >= 2:
-            final_skel[labels2 == lbl] = 255
+    # Hough 결과가 너무 적으면 원본 세선화 사용
+    if np.sum(line_canvas > 0) > 500:
+        skel_uint8 = line_canvas
+
+    # 짧은 노이즈 연결요소 제거
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(skel_uint8)
+    final_skel = np.zeros_like(skel_uint8)
+    for lbl in range(1, num_labels):
+        if stats[lbl, cv2.CC_STAT_AREA] >= 25:
+            final_skel[labels == lbl] = 255
 
     save_debug("step4_skeleton.png", final_skel)
     print(f"  → 세선화 완료. 비zero 픽셀: {np.sum(final_skel>0)}")
@@ -395,162 +271,104 @@ def skeletonize_walls(img_bgr: np.ndarray) -> np.ndarray:
 
 
 # ──────────────────────────────────────────────
-# Step 5: 피난시설 탐지 (규칙 기반, YOLOv10 대체)
-# ──────────────────────────────────────────────
-def detect_facilities_rule_based(img_bgr: np.ndarray) -> dict:
-    """
-    YOLOv10 모델 없이 색상/형태 규칙으로 피난시설 탐지.
-    - 비상구(EXIT): 초록색 계열 픽셀 클러스터
-    - 소화기: 빨간색 계열 픽셀 클러스터 (특정 크기)
-    - 엘리베이터: 파란색 계열 픽셀 클러스터
-    - 화장실: 파란색 아이콘 (남녀 픽토그램)
-
-    Returns:
-        dict with keys: 'exits', 'extinguishers', 'elevators', 'toilets'
-        각각 [(cx, cy, w, h), ...] 형태의 bbox 리스트
-    """
-    print("[Step 5] 피난시설 탐지 (규칙 기반)")
-    hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
-    h_img, w_img = img_bgr.shape[:2]
-    results = {"exits": [], "elevators": [], "toilets": [], "stairs": []}
-
-    def find_clusters(mask, min_area=30, max_area=8000):
-        """연결요소로 마스크 클러스터 추출."""
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-        mask_closed = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(mask_closed)
-        boxes = []
-        for lbl in range(1, num_labels):
-            area = stats[lbl, cv2.CC_STAT_AREA]
-            if min_area <= area <= max_area:
-                x = stats[lbl, cv2.CC_STAT_LEFT]
-                y = stats[lbl, cv2.CC_STAT_TOP]
-                bw = stats[lbl, cv2.CC_STAT_WIDTH]
-                bh = stats[lbl, cv2.CC_STAT_HEIGHT]
-                cx, cy = int(centroids[lbl][0]), int(centroids[lbl][1])
-                boxes.append((cx, cy, bw, bh))
-        return boxes
-
-    # 비상구: 초록색 (H: 40~90, S>80, V>80)
-    exit_mask = cv2.inRange(hsv, (40, 80, 80), (90, 255, 255))
-    results["exits"] = find_clusters(exit_mask, min_area=50)
-    print(f"  → 비상구 {len(results['exits'])}개")
-
-    # 엘리베이터: 파란색 중 작은 클러스터 (H: 90~130)
-    blue_mask = cv2.inRange(hsv, (90, 60, 60), (130, 255, 255))
-    blue_boxes = find_clusters(blue_mask, min_area=40, max_area=6000)
-    for box in blue_boxes:
-        cx, cy, bw, bh = box
-        if bw * bh > 1000:
-            results["toilets"].append(box)   # 화장실: 파란색 대형 클러스터
-        else:
-            results["elevators"].append(box) # 엘리베이터: 파란색 소형 클러스터
-    print(f"  → 엘리베이터 {len(results['elevators'])}개, 화장실 {len(results['toilets'])}개")
-
-    # 계단: 흑백 줄무늬 패턴 (그레이 영역 내 수평선 반복 구조)
-    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    _, stair_bin = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY_INV)
-    kh = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 1))
-    stair_lines = cv2.morphologyEx(stair_bin, cv2.MORPH_OPEN, kh)
-    stair_mask = cv2.dilate(stair_lines, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 10)))
-    results["stairs"] = find_clusters(stair_mask, min_area=200, max_area=8000)
-    print(f"  → 계단 {len(results['stairs'])}개")
-
-    return results
-
-
-# ──────────────────────────────────────────────
-# Step 6: Grid Map 변환
+# Step 5: Grid Map 변환
 # ──────────────────────────────────────────────
 def build_grid_map(
     wall_mask: np.ndarray,
     img_bgr:  np.ndarray,
-    facilities: dict,
+    wall_prior: Optional[np.ndarray] = None,  # noqa: ARG001 (reserved for future use)
     rows: int = GRID_ROWS,
     cols: int = GRID_COLS,
 ) -> np.ndarray:
     """
-    벽체 마스크 + 시설 위치 → rows×cols Grid Map.
+    벽체 마스크 → rows×cols Grid Map (0/1).
 
-    알고리즘:
-    1. 모든 셀을 1(이동 불가)로 초기화.
-    2. 건물 외곽 내부 셀은 0(이동 가능)으로.
-    3. 벽체 픽셀이 셀 면적의 thresh 이상이면 1(이동 불가) 유지.
-    4. 시설 bbox 중심이 속한 셀에 해당 값 부여.
+    알고리즘 (벡터 기반):
+    1. 건물 외곽 컨투어 채우기 → 내부/외부 마스크.
+    2. HoughLinesP 로 구조 벽선만 추출 (노이즈·짧은선 제외).
+    3. 구조 벽선을 두께=2 로 재래스터화 → vector_wall_mask.
+    4. 셀별 pixel ratio 판정:
+       - inside_ratio ≤ inside_thresh → 외부 → WALL
+       - vec_ratio  >  wall_thresh    → 벽선 통과 → WALL
+       - 나머지                        → PASSABLE
+    5. wall_prior(Step2 HSV 마스크) 보조: 두꺼운 벽 픽셀 40%+ 이면 WALL 추가.
     """
-    print("[Step 6] Grid Map 변환")
-    h, w = skeleton.shape[:2]
+    print("[Step 5] Grid Map 변환 (벡터 기반 · 픽셀비율)")
+    h, w = wall_mask.shape[:2]
     cell_h = h / rows
     cell_w = w / cols
 
-    # 초기값 1(이동 불가) - 건물 외부도 동일하게 처리
     grid = np.full((rows, cols), CELL_WALL, dtype=np.int32)
 
-    # ── 건물 내부 판정: 원본에서 밝은 흰색 배경이 아닌 영역 ──
+    # ── 1. 건물 내부 마스크 ──
+    # bin_orig: 어두운 벽=255, 흰 복도/방/배경=0
     gray_orig = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    # 건물 윤곽선으로 내부/외부 구분
     _, bin_orig = cv2.threshold(gray_orig, 240, 255, cv2.THRESH_BINARY_INV)
-    # 가장 큰 건물 외곽 채우기
-    contours, _ = cv2.findContours(bin_orig, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # 큰 커널 MORPH_CLOSE: 흰 복도·방 구멍을 채워 건물 발자국을 하나로 합침
+    fill_k = cv2.getStructuringElement(cv2.MORPH_RECT, (40, 40))
+    bin_filled = cv2.morphologyEx(bin_orig, cv2.MORPH_CLOSE, fill_k)
+    contours, _ = cv2.findContours(bin_filled, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     building_mask = np.zeros((h, w), dtype=np.uint8)
     if contours:
-        largest = max(contours, key=cv2.contourArea)
-        cv2.drawContours(building_mask, [largest], -1, 255, thickness=cv2.FILLED)
+        cv2.drawContours(
+            building_mask, [max(contours, key=cv2.contourArea)], -1, 255, cv2.FILLED
+        )
 
-    # ── 셀별 분류 ──
-    wall_thresh = 0.03   # 셀 픽셀의 3% 이상이 벽선이면 벽
-    inside_thresh = 0.15 # 셀 픽셀의 15% 이상이 건물 내부면 내부
+    # ── 2. 벡터 벽선 시각화용 vwm 생성 (thickness=1, 판정에는 미사용) ──
+    # wall_mask는 Step4에서 이미 HoughLinesP로 벡터화·필터된 세선화 마스크.
+    # 여기서는 debug 이미지용으로만 HoughLinesP를 한 번 더 돌려 선분 형태로 저장.
+    min_line_len = int(max(max(cell_h, cell_w), 30))
+    lines = cv2.HoughLinesP(
+        wall_mask, rho=1, theta=np.pi / 180,
+        threshold=20, minLineLength=min_line_len, maxLineGap=8,
+    )
+    vwm = np.zeros((h, w), dtype=np.uint8)  # 시각화 전용
+    n_segs = 0
+    if lines is not None:
+        for ln in lines:
+            x1, y1, x2, y2 = ln[0]
+            cv2.line(vwm, (x1, y1), (x2, y2), 255, 1)
+            n_segs += 1
+    save_debug("step5_vector_wall_mask.png", vwm)
+    print(f"  → 구조 벽 선분 {n_segs}개 추출")
+
+    # navigable 마스크 (시각화 전용)
+    nav_mask = cv2.bitwise_and(
+        building_mask,
+        cv2.bitwise_not(cv2.dilate(vwm, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)))),
+    )
+    save_debug("step5_navigable_mask.png", nav_mask)
+
+    # ── 3. 셀별 픽셀 비율 판정 ──
+    # 벽 판정은 wall_mask(Step4 Hough-필터 세선화, 1px thick)를 직접 사용.
+    # 1px 선분이 셀 전폭을 가로지를 때 비율: 수평≈2.5%, 수직≈3.5%
+    # wall_thresh=0.010 → full-crossing은 잡히고, 경계만 스치는 세그먼트는 통과
+    inside_thresh = 0.15   # 건물 내부 판정 (building_mask 기준)
+    wall_thresh   = 0.010  # Step4 벡터 세선화 기준 (1px full-crossing ≈2.5-3.5%)
 
     for r in range(rows):
         for c in range(cols):
-            y1 = int(r * cell_h);  y2 = int((r+1) * cell_h)
-            x1 = int(c * cell_w);  x2 = int((c+1) * cell_w)
+            y1 = int(r * cell_h);       y2 = int((r + 1) * cell_h)
+            x1 = int(c * cell_w);       x2 = int((c + 1) * cell_w)
+            if x2 <= x1 or y2 <= y1:
+                continue
 
-            cell_wall    = wall_mask[y1:y2, x1:x2]
-            cell_building= building_mask[y1:y2, x1:x2]
-            cell_pixels  = cell_wall.size
+            n_px = (y2 - y1) * (x2 - x1)
 
-            inside_ratio = np.sum(cell_building > 0) / (cell_pixels + 1e-6)
-            wall_ratio   = np.sum(cell_wall > 0) / (cell_pixels + 1e-6)
+            inside_ratio = float(np.sum(building_mask[y1:y2, x1:x2] > 0)) / n_px
+            # ── 핵심: Step4 Hough-벡터화 마스크 직접 사용 (vwm 아님) ──
+            wall_ratio   = float(np.sum(wall_mask[y1:y2, x1:x2]    > 0)) / n_px
 
             if inside_ratio > inside_thresh:
-                grid[r, c] = CELL_PASSABLE   # 건물 내부 = 이동 가능
+                grid[r, c] = CELL_PASSABLE  # 건물 내부 기본값
             if wall_ratio > wall_thresh:
-                grid[r, c] = CELL_WALL        # 벽 우선
+                grid[r, c] = CELL_WALL      # 벽선 통과 → 벽 우선
 
-    # ── 시설 오버레이 ──
-    def place_facility(boxes, cell_value):
-        for cx, cy, bw, bh in boxes:
-            c_idx = int(cx / cell_w)
-            r_idx = int(cy / cell_h)
-            c_idx = np.clip(c_idx, 0, cols-1)
-            r_idx = np.clip(r_idx, 0, rows-1)
-            grid[r_idx, c_idx] = cell_value
-
-    place_facility(facilities["exits"],         CELL_EXIT)
-    place_facility(facilities["elevators"],     CELL_WALL)      # 엘리베이터 → 이동 불가
-    place_facility(facilities["toilets"],       CELL_PASSABLE)  # 화장실 → 이동 가능
-    place_facility(facilities["stairs"],        CELL_STAIR)     # 계단 → 비용 높은 이동 가능
-
-    # 벽과의 거리 정보로 세로/좁은 통로 가중치 부여
-    wall_binary = (wall_mask > 0).astype(np.uint8)
-    dt = cv2.distanceTransform(255 - wall_binary * 255, cv2.DIST_L2, 5)
-    cell_dist = np.zeros((rows, cols), dtype=np.float32)
-    for r in range(rows):
-        for c in range(cols):
-            if grid[r, c] == CELL_PASSABLE:
-                y1 = int(r * cell_h);  y2 = int((r+1) * cell_h)
-                x1 = int(c * cell_w);  x2 = int((c+1) * cell_w)
-                cell_dist[r, c] = np.mean(dt[y1:y2, x1:x2])
-
-    for r in range(rows):
-        for c in range(cols):
-            if grid[r, c] == CELL_PASSABLE and cell_dist[r, c] < WALL_PROXIMITY_THRESHOLD:
-                grid[r, c] = CELL_STAIR
+            # (wall_prior는 이미지의 80%+ 커버로 too broad → secondary check 미사용)
 
     print(f"  → Grid {rows}×{cols} 생성 완료")
     unique, counts = np.unique(grid, return_counts=True)
-    label_map = {0: "이동가능", 1: "이동불가", 2: "비상구", 3: "계단"}
+    label_map = {0: "이동가능", 1: "이동불가"}
     for u, cnt in zip(unique, counts):
         print(f"     셀값 {u}({label_map.get(u, '?')}): {cnt}개")
 
@@ -632,22 +450,17 @@ def run_pipeline(input_path: str, output_dir: str = SCRIPT_DIR) -> np.ndarray:
     save_debug("step0_cropped.png", floor_plan)
 
     # Step 2: 불필요 요소 제거
-    cleaned, wall_mask = remove_unnecessary_elements(floor_plan)
+    cleaned, wall_mask_hsv = remove_unnecessary_elements(floor_plan)
 
     # Step 3: 텍스트 제거
-    text_removed = remove_text(cleaned, wall_mask)
+    text_removed = remove_text(cleaned, wall_mask_hsv)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = load_fgssnet_model(device=device)
+    # Step 4: 벽체 세선화 마스크
+    wall_mask = skeletonize_walls(floor_plan, wall_mask_hsv)
+    save_debug("step4_selected_wall_mask.png", wall_mask)
 
-    # Step 4: FGSSNet 벽체 세그멘테이션
-    wall_mask = segment_walls_fgssnet(text_removed, model, device=device)
-
-    # Step 5: 시설 탐지 (floor_plan 원본 컬러 사용)
-    facilities = detect_facilities_rule_based(floor_plan)
-
-    # Step 6: Grid Map
-    grid = build_grid_map(wall_mask, floor_plan, facilities)
+    # Step 5: Grid Map (선 추출 기반 단순 변환)
+    grid = build_grid_map(wall_mask, floor_plan, wall_mask_hsv)
 
     # 결과 저장
     grid_path = os.path.join(output_dir, "grid_map.npy")
@@ -662,9 +475,7 @@ def run_pipeline(input_path: str, output_dir: str = SCRIPT_DIR) -> np.ndarray:
             "cols": GRID_COLS,
             "cell_legend": {
                 "0": "passable",
-                "1": "wall",
-                "2": "exit",
-                "3": "stair"
+                "1": "wall"
             }
         }, f, ensure_ascii=False, indent=2)
     print(f"[결과] Grid JSON 저장: {grid_json_path}")
@@ -678,7 +489,9 @@ def run_pipeline(input_path: str, output_dir: str = SCRIPT_DIR) -> np.ndarray:
     # 파이프라인 비교 이미지 (Step0 → Step4 → Grid 나란히)
     step0 = cv2.imread(os.path.join(DEBUG_DIR, "step0_input.png"))
     step1 = cv2.imread(os.path.join(DEBUG_DIR, "step1_floor_plan_crop.png"))
-    step4 = cv2.imread(os.path.join(DEBUG_DIR, "step4_fgssnet_mask.png"))
+    step4 = cv2.imread(os.path.join(DEBUG_DIR, "step4_selected_wall_mask.png"))
+    if step4 is None:
+        step4 = cv2.imread(os.path.join(DEBUG_DIR, "step4_skeleton.png"))
     if step4 is not None and step4.ndim == 2:
         step4 = cv2.cvtColor(step4, cv2.COLOR_GRAY2BGR)
     elif step4 is None:
@@ -704,7 +517,7 @@ def run_pipeline(input_path: str, output_dir: str = SCRIPT_DIR) -> np.ndarray:
 
 
 if __name__ == "__main__":
-    input_image = os.path.join(SCRIPT_DIR, "fire_evacuation_diagram.jpeg")
+    input_image = os.path.join(SCRIPT_DIR, "fire_evacuation_diagram.jpg")
     grid = run_pipeline(input_image)
     print("\nGrid Map (30×20):")
     print(grid)

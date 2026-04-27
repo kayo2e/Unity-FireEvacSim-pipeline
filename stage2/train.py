@@ -521,7 +521,7 @@ class FireEvacEnv(gym.Env):
         normalized_dist = np.clip(self._bfs_dist / mx, 0, 1)
         obs[5] = 1.0 - normalized_dist
 
-        # ── 요약 피처 6개 (3606 = 3600 + 6) ────────────────────────────
+        # ── 요약 피처 8개 (3608 = 3600 + 8) ────────────────────────────
         # Mnih et al.(2015): 사전 계산 피처가 raw pixel 대비 학습 속도·성능 향상
         fire_cells = np.argwhere(self.fire_map > 0)
         a_blocked = all(p in self.blocked_exits for p in EXIT_A_POS)
@@ -707,7 +707,7 @@ def train_fire_evac(person_counts=(10, 30, 50), total_timesteps=300_000, n_envs=
     print(f"총 스텝        : {total_timesteps:,} / 모델")
     print(f"병렬 환경      : {n_envs}개")
     print(f"유도등         : {n_lights}개 셀")
-    print(f"Policy         : MlpPolicy (flatten 3606-dim) | net_arch=[256,256]")
+    print(f"Policy         : MlpPolicy (flatten 3608-dim) | net_arch=[256,256]")
     print(f"학습 디바이스  : {device}")
     print(f"그리드 검증    : 13/13 방 양방향 출구 접근 가능")
     print("=" * 62)
@@ -735,7 +735,7 @@ def train_fire_evac(person_counts=(10, 30, 50), total_timesteps=300_000, n_envs=
             clip_range      = 0.2,
             ent_coef        = 0.02,          # 0.01→0.02: 탐색 강화, S3/S4 다양한 패턴 대응
             max_grad_norm   = 0.5,
-            policy_kwargs   = dict(net_arch=[256, 256]),  # 64×2→256×2: 3606-dim 처리 표현력 (Schulman et al., 2017)
+            policy_kwargs   = dict(net_arch=[256, 256]),  # 64×2→256×2: 3608-dim 처리 표현력 (Schulman et al., 2017)
             tensorboard_log = "./fire_evac_log/",
         )
 
