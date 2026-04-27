@@ -2,7 +2,33 @@
   "permissions": {
     "allow": [
       "Bash(python gridcell_extract.py)",
-      "Bash(python train.py --mode train --people 10 --steps 30000)"
+      "Bash(python train.py --mode train --people 10 --steps 30000)",
+      "Bash(python -c ' *)",
+      "Bash(python train.py --mode train --people 10 --steps 2000000)",
+      "Bash(ls c:/Users/User/Downloads/capstone2/pipeline/stage2/fire_evac_model*)",
+      "Bash(ls c:/Users/User/Downloads/capstone2/pipeline/stage2/result/test_ppo_10ppl12/*.json)",
+      "Bash(python train.py --mode train --people 30 50 --steps 2000000)",
+      "Bash(taskkill /F /FI \"WINDOWTITLE eq *train.py*\")",
+      "Bash(taskkill /F /FI \"IMAGENAME eq python.exe\" /FI \"WINDOWTITLE eq *30*\")",
+      "Bash(wmic process *)",
+      "Bash(tasklist)",
+      "Bash(kill 51068)",
+      "Bash(taskkill /PID 51068 /F)",
+      "Bash(python train.py --mode train --people 10 30 50 --steps 2000000)",
+      "Bash(python train.py --mode test --test-n 10 --test-scenario 1 --test-episodes 1000)",
+      "Bash(python train.py --mode test --test-n 10 --test-scenario 2 --test-episodes 1000)",
+      "Bash(python train.py --mode test --test-n 10 --test-scenario 3 --test-episodes 1000)",
+      "Bash(python train.py --mode test --test-n 10 --test-scenario 4 --test-episodes 1000)",
+      "Bash(python train.py --mode test --test-n 30 --test-scenario 1 --test-episodes 1000)",
+      "Bash(python train.py --mode test --test-n 30 --test-scenario 2 --test-episodes 1000)",
+      "Bash(python train.py --mode test --test-n 30 --test-scenario 3 --test-episodes 1000)",
+      "Bash(python train.py --mode test --test-n 30 --test-scenario 4 --test-episodes 1000)",
+      "Bash(python train.py --mode test --test-n 50 --test-scenario 1 --test-episodes 1000)",
+      "Bash(python train.py --mode test --test-n 50 --test-scenario 2 --test-episodes 1000)",
+      "Bash(python train.py --mode test --test-n 50 --test-scenario 3 --test-episodes 1000)",
+      "Bash(python train.py --mode test --test-n 50 --test-scenario 4 --test-episodes 1000)",
+      "Bash(python astar_baseline.py --all-scenarios --n 10 --episodes 1000)",
+      "Bash(python astar_baseline.py --all-scenarios --n 30 --episodes 1000)"
     ]
   }
 }
