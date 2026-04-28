@@ -75,7 +75,7 @@ cv2.imwrite("clean.jpg", clean)
 # 그리드맵 만들기
 binary_img = clean.copy()
 
-grid_size = 1 # 1x1 셀로 그리드맵 생성 (픽셀 단위)
+grid_size = 20  # 20x20픽셀 = 1셀
 h, w = binary_img.shape
 
 grid_h = int(np.ceil(h / grid_size))
@@ -105,11 +105,36 @@ for gy in range(grid_h):
 # grid_map을 이미지로 시각화
 np.save("grid_map.npy", grid_map)
 
-grid_visual = cv2.resize(
-    grid_map * 255,
-    (w, h),
-    interpolation=cv2.INTER_NEAREST
-)
+# ── 셀 단위 시각화 ──────────────────────────────────────────
+CELL_PX   = 30                          # 출력 이미지에서 1셀 = 30px
+WALL_CLR  = (30,  30,  30)              # 벽:  거의 검정
+PASS_CLR  = (200, 185, 155)             # 통로: 베이지
+LINE_CLR  = (120, 120, 120)             # 격자선: 회색
 
-cv2.imwrite("binary_img.jpg", binary_img)
-cv2.imwrite("grid_wall_map.jpg", grid_visual)
+vis_h = grid_h * CELL_PX
+vis_w = grid_w * CELL_PX
+cell_vis = np.full((vis_h, vis_w, 3), 240, dtype=np.uint8)
+
+for gy in range(grid_h):
+    for gx in range(grid_w):
+        y1c = gy * CELL_PX;  y2c = y1c + CELL_PX
+        x1c = gx * CELL_PX;  x2c = x1c + CELL_PX
+        cell_vis[y1c:y2c, x1c:x2c] = WALL_CLR if grid_map[gy, gx] == 1 else PASS_CLR
+
+# 격자선
+for gy in range(grid_h + 1):
+    cv2.line(cell_vis, (0, gy * CELL_PX), (vis_w, gy * CELL_PX), LINE_CLR, 1)
+for gx in range(grid_w + 1):
+    cv2.line(cell_vis, (gx * CELL_PX, 0), (gx * CELL_PX, vis_h), LINE_CLR, 1)
+
+# 셀 좌표 텍스트 (5셀마다)
+for gy in range(0, grid_h, 5):
+    for gx in range(0, grid_w, 5):
+        cv2.putText(cell_vis, f"{gx},{gy}",
+                    (gx * CELL_PX + 2, gy * CELL_PX + CELL_PX - 4),
+                    cv2.FONT_HERSHEY_PLAIN, 0.6, (80, 80, 80), 1)
+
+cv2.imwrite("binary_img.jpg",   binary_img)
+cv2.imwrite("grid_cell_vis.jpg", cell_vis)
+print(f"그리드 크기: {grid_w}cols × {grid_h}rows  |  "
+      f"벽={int(grid_map.sum())}  통로={(grid_map==0).sum()}")
