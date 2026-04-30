@@ -75,7 +75,7 @@ cv2.imwrite("clean.jpg", clean)
 # 그리드맵 만들기
 binary_img = clean.copy()
 
-grid_size = 20  # 20x20픽셀 = 1셀
+grid_size = 5  # 5x5픽셀 = 1셀
 h, w = binary_img.shape
 
 grid_h = int(np.ceil(h / grid_size))
