@@ -42,8 +42,8 @@ import platform
 # ══════════════════════════════════════════════
 # 상수
 # ══════════════════════════════════════════════
-EMPTY, WALL, EXIT, ELEVATOR, STAIR, TOILET, ROOM, OUTSIDE = 0, 1, 2, 3, 4, 5, 6, 9
-WALKABLE = {EMPTY, EXIT, STAIR, TOILET, ROOM}
+HALL, WALL, EXIT, ROOM = 0, 1, 2, 3  # 수정됨: 4종으로 단순화 (ELEVATOR/STAIR/TOILET/OUTSIDE → WALL로 통일)
+WALKABLE = {HALL, EXIT, ROOM}  # 수정됨
 N, S, E, W = 0, 1, 2, 3
 DELTA = {N: (-1, 0), S: (1, 0), E: (0, 1), W: (0, -1)}
 
@@ -98,6 +98,17 @@ BASE_GRID = np.array([
     [1,6,6,6,6,6,6,0,0,0,0,1,6,6,6,6,6,6,1,9],
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9],
 ], dtype=np.int32)
+# 수정됨: 셀 타입 단순화 — 순서 중요 (ELEVATOR 먼저, ROOM 마지막)
+# ELEVATOR 원값=3, ROOM 목표값=3 → ROOM 변환 전에 ELEVATOR를 WALL로 처리해야 충돌 없음
+BASE_GRID[BASE_GRID == 9] = 1   # OUTSIDE  → WALL
+BASE_GRID[BASE_GRID == 5] = 1   # TOILET   → WALL
+BASE_GRID[BASE_GRID == 4] = 1   # STAIR    → WALL
+BASE_GRID[BASE_GRID == 3] = 1   # ELEVATOR → WALL (이 시점 ROOM은 아직 6, 충돌 없음)
+BASE_GRID[BASE_GRID == 6] = 3   # ROOM 6→3 (마지막, 안전)
+# 수정됨: 연결성 확보 — 원 TOILET/STAIR 구간이 WALL로 바뀌어 생긴 고립 영역 3곳 개방
+BASE_GRID[4, 8:11] = HALL   # 원 TOILET(row4,col8-10): 상단 복도 ↔ 메인 복도 연결
+BASE_GRID[5, 8:11] = HALL   # 원 TOILET(row5,col8-10): 상단 복도 ↔ 메인 복도 연결
+BASE_GRID[25, 9:11] = HALL  # 원 TOILET(row25,col9-10): 하단 우측 복도 연결
 
 EXIT_POSITIONS = [(8, 11), (8, 12), (22, 8), (22, 9), (22, 10)]
 EXIT_A_POS = [(8, 11), (8, 12)]
@@ -474,7 +485,7 @@ class FireEvacEnv(gym.Env):
                 if (0 <= nr < self.ROWS and 0 <= nc < self.COLS
                         and self.grid[nr, nc] in WALKABLE):
                     base_cost = fire_cost if self.fire_map[nr, nc] > 0 else 5 if self.smoke_map[nr, nc] > 0 else 1
-                    density = sum(1 for p in self.people_data if p["pos"] == (nr, nc))
+                    density = self._occupancy.get((nr, nc), 0)
                     add_cost = base_cost + density * crowd_weight
                     new_cost = cost + add_cost
                     if new_cost < dist[nr, nc]:
@@ -509,7 +520,7 @@ class FireEvacEnv(gym.Env):
     def _get_obs(self):
         # 6채널 → flatten (MlpPolicy용)
         obs = np.zeros((6, self.ROWS, self.COLS), dtype=np.float32)
-        obs[0] = self.grid / 9.0
+        obs[0] = self.grid / 3.0  # 수정됨: 최대값 ROOM=3 기준 정규화
         obs[1] = self.fire_map
         obs[2] = self.smoke_map
         for p in self.people_data: obs[3, p["pos"][0], p["pos"][1]] += 1.0
@@ -595,7 +606,7 @@ class FireEvacEnv(gym.Env):
     def render(self):
         if self.render_mode != "human": return
         DIR  = {N:"↑", S:"↓", E:"→", W:"←"}
-        CELL = {OUTSIDE:" ",WALL:"█",EXIT:"E",ELEVATOR:"V",STAIR:"S",TOILET:"T",ROOM:".",EMPTY:"."}
+        CELL = {HALL:"·", WALL:"█", EXIT:"E", ROOM:"R"}  # 수정됨: 4종으로 단순화
         pset = {p["pos"] for p in self.people_data}
         lmap = {self.light_cells[i]: int(self.light_dirs[i]) for i in range(self.n_lights)}
         print(f"\n[Step {self.step_count}] 탈출 {self.escaped} | 사망 {self.dead} | 잔류 {len(self.people_data)}")
@@ -880,6 +891,53 @@ def test_fire_evac(n_agents: int = 10, scenario: int = 1, n_episodes: int = 10,
 
 
 # ══════════════════════════════════════════════
+# BFS 연결성 검증
+# ══════════════════════════════════════════════
+def verify_connectivity():
+    grid = BASE_GRID.copy()
+    ROWS, COLS = grid.shape
+
+    def bfs(targets):
+        dist = np.full((ROWS, COLS), 9999)
+        q = deque()
+        for (r, c) in targets:
+            if grid[r, c] == EXIT:
+                dist[r, c] = 0
+                q.append((r, c))
+        while q:
+            r, c = q.popleft()
+            for dr, dc in [(-1, 0), (1, 0), (0, 1), (0, -1)]:
+                nr, nc = r + dr, c + dc
+                if (0 <= nr < ROWS and 0 <= nc < COLS
+                        and dist[nr, nc] == 9999
+                        and grid[nr, nc] in WALKABLE):
+                    dist[nr, nc] = dist[r, c] + 1
+                    q.append((nr, nc))
+        return dist
+
+    dist_a = bfs(EXIT_A_POS)
+    dist_b = bfs(EXIT_B_POS)
+
+    walkable_cells = [(r, c) for r in range(ROWS) for c in range(COLS)
+                      if grid[r, c] in WALKABLE and grid[r, c] != EXIT]
+
+    unreachable_a = [(r, c) for (r, c) in walkable_cells if dist_a[r, c] == 9999]
+    unreachable_b = [(r, c) for (r, c) in walkable_cells if dist_b[r, c] == 9999]
+
+    print(f"[연결성 검증]")
+    print(f"  WALKABLE 셀 수: {len(walkable_cells)}")
+    print(f"  EXIT_A 도달 불가: {len(unreachable_a)}셀 {unreachable_a[:5]}")
+    print(f"  EXIT_B 도달 불가: {len(unreachable_b)}셀 {unreachable_b[:5]}")
+
+    if unreachable_a or unreachable_b:
+        print("  ⚠️ 도달 불가 셀 존재 — 인접 WALL을 HALL(0)로 열어서 연결 필요")
+    else:
+        print("  ✅ 모든 셀에서 두 출구 모두 도달 가능")
+
+    return unreachable_a, unreachable_b
+
+
+# ══════════════════════════════════════════════
 # 진입점
 # ══════════════════════════════════════════════
 if __name__ == "__main__":
@@ -898,6 +956,7 @@ if __name__ == "__main__":
 
     if args.mode == "check":
         print("환경 검증 중...")
+        verify_connectivity()  # 수정됨: 연결성 먼저 확인
         env = FireEvacEnv(scenario=1, n_agents=10)
         check_env(env)
         print(f"관측 크기: {env.observation_space.shape} (MlpPolicy용 flatten)")
