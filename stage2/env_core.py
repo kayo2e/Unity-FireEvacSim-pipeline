@@ -47,48 +47,61 @@ PANIC_RANDOM_MAX   = 0.30 # 공황 최대치일 때 랜덤 이동 확률
 
 # ══════════════════════════════════════════════
 # BASE_GRID: HALL=0, WALL=1, EXIT=2, ROOM=3
+# Unity 원본 인코딩(0=Hall,1=Wall,2=Room,3=Exit)에서 변환:
+#   Unity 2(Room) → 3(ROOM), Unity 3(Door) → 0(HALL)
+#   EXIT_A(7,10-11), EXIT_B(34,10-11) 만 2(EXIT) 유지
 # ══════════════════════════════════════════════
 BASE_GRID = np.array([
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1],
-    [1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1],
-    [1,3,3,3,3,3,3,0,0,0,0,1,1,1,1,1,1,1,1,1],
-    [1,3,3,3,3,3,3,1,0,0,0,1,1,1,1,1,1,1,1,1],  # (4,8-10): 연결성 확보
-    [1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1],  # (5,8-10): 연결성 확보
-    [1,3,3,3,3,3,3,0,0,0,0,1,1,1,1,1,1,1,1,1],
-    [1,3,3,3,3,3,3,1,0,0,0,0,0,3,3,3,1,1,1,1],
-    [1,3,3,3,3,3,3,0,0,0,0,2,2,3,3,3,1,1,1,1],  # EXIT A
-    [1,3,3,3,3,3,3,0,1,1,1,1,3,3,3,3,1,1,1,1],
-    [1,3,3,3,3,3,3,0,1,1,1,1,3,3,3,3,1,1,1,1],
-    [1,3,3,3,3,3,3,0,1,1,1,1,3,3,3,3,1,1,1,1],
-    [1,1,1,1,1,1,1,1,0,0,0,1,0,3,3,3,1,1,1,1],
-    [1,3,3,3,3,3,3,0,0,0,0,0,3,3,3,3,1,1,1,1],
-    [1,3,3,3,3,3,3,1,0,0,0,1,3,3,3,3,1,1,1,1],
-    [1,1,1,1,1,1,1,1,0,0,0,1,0,3,3,3,1,1,1,1],
-    [1,3,3,3,3,3,3,0,0,0,0,1,1,1,1,1,1,1,1,1],
-    [1,3,3,3,3,3,3,1,0,0,0,0,3,3,3,3,3,3,1,1],
-    [1,1,1,1,1,1,1,1,0,0,0,1,3,3,3,3,3,3,1,1],
-    [1,3,3,3,3,3,3,0,0,0,0,1,0,3,3,3,3,3,1,1],
-    [1,3,3,3,3,3,3,1,0,0,0,1,3,3,3,3,3,3,1,1],
-    [1,1,1,1,1,1,1,0,1,1,1,0,3,3,3,3,3,3,1,1],
-    [1,3,3,3,3,3,3,0,2,2,2,1,3,3,3,3,3,3,1,1],  # EXIT B
-    [1,3,3,3,3,3,3,1,0,0,0,0,3,3,3,3,3,3,1,1],
-    [1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1],
-    [1,3,3,3,3,3,3,0,0,0,0,0,0,3,3,3,3,3,1,1],  # (25,9-10): 연결성 확보
-    [1,3,3,3,3,3,3,1,0,0,0,1,3,3,3,3,3,3,1,1],
-    [1,1,1,1,1,1,1,1,0,0,0,1,3,3,3,3,3,3,1,1],
-    [1,3,3,3,3,3,3,0,0,0,0,1,3,3,3,3,3,3,1,1],
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,3,3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,3,3,3,1,1,1],
+    [1,3,3,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,3,3,3,1,1,1],
+    [1,1,1,1,0,0,0,0,1,3,3,3,3,1,0,0,0,0,1,3,3,3,1,1,1],
+    [1,3,3,1,0,0,0,0,1,3,3,3,3,1,0,0,0,0,1,3,3,3,1,1,1],
+    [1,3,3,1,0,0,0,0,1,3,3,3,3,1,0,0,0,0,1,3,3,3,1,1,1],
+    [1,3,3,0,0,0,0,0,1,3,3,3,3,1,0,0,0,0,1,3,3,3,1,1,1],
+    [1,1,1,1,0,0,0,0,1,1,2,2,1,1,0,0,0,0,1,3,3,3,1,1,1],  # EXIT A
+    [1,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,1,1,1,1],
+    [1,3,3,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,1,0,0,0,1,1,1],
+    [1,3,3,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1],
+    [1,1,1,1,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1],
+    [1,3,3,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1],
+    [1,3,3,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1],
+    [1,3,3,1,0,0,0,0,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1],
+    [1,3,3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,3,3,3,3,3,3,1],
+    [1,3,3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,3,3,3,3,3,3,1],
+    [1,3,3,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,3,3,3,3,3,3,1],
+    [1,3,3,1,0,0,0,0,1,1,1,1,1,1,0,0,0,1,3,3,3,3,3,3,1],
+    [1,3,3,0,0,0,0,0,1,1,1,1,1,1,0,0,0,1,3,3,3,3,3,3,1],
+    [1,3,3,1,0,0,0,0,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1],
+    [1,3,3,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,3,3,3,3,3,3,1],
+    [1,1,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,1,3,3,3,3,3,3,1],
+    [1,3,3,0,0,0,0,0,1,1,1,1,1,1,0,0,0,1,3,3,3,3,3,3,1],
+    [1,3,3,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,3,3,3,3,3,3,1],
+    [1,3,3,1,0,0,0,0,1,1,1,1,1,1,0,0,0,1,3,3,3,3,3,3,1],
+    [1,1,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,1,3,3,3,3,3,3,1],
+    [1,3,3,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,3,3,3,3,3,3,1],
+    [1,3,3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,3,3,3,3,3,3,1],
+    [1,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,3,3,3,3,3,3,1],
+    [1,1,1,1,0,0,0,0,1,1,1,1,1,1,0,0,0,0,3,3,3,3,3,3,1],
+    [1,3,3,0,0,0,0,0,1,1,1,1,1,1,0,0,0,1,3,3,3,3,3,3,1],
+    [1,3,3,1,0,0,0,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1],
+    [1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,3,3,3,1],
+    [1,3,3,0,0,0,0,0,1,1,2,2,1,1,0,0,0,1,3,3,3,3,3,3,1],  # EXIT B
+    [1,3,3,1,0,0,0,0,1,3,3,3,3,1,0,0,0,1,3,3,3,3,3,3,1],
+    [1,3,3,1,0,0,0,0,1,3,3,3,3,1,0,0,0,1,3,3,3,3,3,3,1],
+    [1,1,1,1,0,0,0,0,1,3,3,3,3,1,0,0,0,1,3,3,3,3,3,3,1],
+    [1,3,3,0,0,0,0,0,1,3,3,3,3,1,0,0,0,0,3,3,3,3,3,3,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 ], dtype=np.int32)
 
-EXIT_POSITIONS = [(8, 11), (8, 12), (22, 8), (22, 9), (22, 10)]
-EXIT_A_POS     = [(8, 11), (8, 12)]
-EXIT_B_POS     = [(22, 8), (22, 9), (22, 10)]
+EXIT_POSITIONS = [(7, 10), (7, 11), (34, 10), (34, 11)]
+EXIT_A_POS     = [(7, 10), (7, 11)]
+EXIT_B_POS     = [(34, 10), (34, 11)]
 
 SCENARIO_CONFIGS = {
-    1: {"name":"초기 화재",  "fire_count":(1,1),  "spread_prob":0.05, "smoke_radius":0, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":[(3,1)],   "max_steps":200},
+    1: {"name":"초기 화재",  "fire_count":(1,1),  "spread_prob":0.05, "smoke_radius":0, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":[(2,1)],   "max_steps":200},
     2: {"name":"화재 확산",  "fire_count":(2,3),  "spread_prob":0.12, "smoke_radius":2, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":None,      "max_steps":250},
-    3: {"name":"출구 위협",  "fire_count":(1,1),  "spread_prob":0.25, "smoke_radius":4, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":[(8,10)],  "max_steps":350},
+    3: {"name":"출구 위협",  "fire_count":(1,1),  "spread_prob":0.25, "smoke_radius":4, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":[(5,10)],  "max_steps":350},
     4: {"name":"폭발 붕괴",  "fire_count":(3,6),  "spread_prob":0.20, "smoke_radius":4, "exit_block_prob":0.2, "collapse_prob":0.15, "fire_fixed":None,      "max_steps":600},
 }
 
@@ -125,10 +138,9 @@ class FireEvacEnv(gym.Env):
         self.n_lights  = len(self.light_cells)
         self.light_idx = {cell: i for i, cell in enumerate(self.light_cells)}
 
-        # 관측: 6채널 flatten + 요약 피처 9개 (F9: 평균 공황 레벨 추가)
-        obs_size = 6 * self.ROWS * self.COLS + 9
+        # 관측: 스칼라 피처 9개 (F1~F9) — 그리드 크기 독립, Unity 이식 가능
         self.observation_space = spaces.Box(
-            low=0.0, high=1.0, shape=(obs_size,), dtype=np.float32
+            low=0.0, high=1.0, shape=(9,), dtype=np.float32
         )
         self.action_space = spaces.Box(
             low=np.array( [5.0,  5.0,  0.5]),
@@ -301,6 +313,17 @@ class FireEvacEnv(gym.Env):
             else:
                 alive.append(p)
         self.people_data = alive
+
+        # 스텝별 출구 불균형 패널티 — F7/F8 기반, A*는 학습 불가능한 신호
+        n_alive = len(self.people_data)
+        if (n_alive > 1
+                and self._dist_to_exit_A is not None
+                and self._dist_to_exit_B is not None):
+            near_a = sum(1 for p in self.people_data
+                         if self._dist_to_exit_A[p["pos"][0], p["pos"][1]] <= QUEUE_RADIUS)
+            near_b = sum(1 for p in self.people_data
+                         if self._dist_to_exit_B[p["pos"][0], p["pos"][1]] <= QUEUE_RADIUS)
+            reward -= abs(near_a - near_b) / n_alive * 0.3
 
         terminated = len(self.people_data) == 0
         truncated  = self.step_count >= self.cfg["max_steps"]
@@ -476,15 +499,15 @@ class FireEvacEnv(gym.Env):
                     dist[nr, nc] = dist[r, c] + 1; q.append((nr, nc))
         return dist
 
-    def _compute_bfs_with_risk(self, exit_positions, fire_cost=10.0,
+    def _compute_bfs_with_risk(self, exit_positions, exit_cost=10.0,
                                crowd_weight=2.0):
         import heapq
         dist = np.full((self.ROWS, self.COLS), 9999.0)
         q = []
         for (r, c) in exit_positions:
             if self.grid[r, c] == EXIT:
-                dist[r, c] = 0
-                heapq.heappush(q, (0, (r, c)))
+                dist[r, c] = exit_cost          # 출구 선호도 비용 — 화재 없어도 항상 유효
+                heapq.heappush(q, (exit_cost, (r, c)))
         while q:
             cost, (r, c) = heapq.heappop(q)
             if cost > dist[r, c]: continue
@@ -492,7 +515,7 @@ class FireEvacEnv(gym.Env):
                 nr, nc = r + dr, c + dc
                 if (0 <= nr < self.ROWS and 0 <= nc < self.COLS
                         and self.grid[nr, nc] in WALKABLE):
-                    base = (fire_cost if self.fire_map[nr, nc] > 0
+                    base = (10.0 if self.fire_map[nr, nc] > 0  # 화재 통과 페널티 고정
                             else 5 if self.smoke_map[nr, nc] > 0 else 1)
                     new_cost = cost + base + \
                         self._occupancy.get((nr, nc), 0) * crowd_weight
@@ -527,19 +550,6 @@ class FireEvacEnv(gym.Env):
     # 관측 / 정보
     # ──────────────────────────────────────────
     def _get_obs(self):
-        obs = np.zeros((6, self.ROWS, self.COLS), dtype=np.float32)
-        obs[0] = self.grid / 3.0
-        obs[1] = self.fire_map
-        obs[2] = self.smoke_map
-        for p in self.people_data:
-            obs[3, p["pos"][0], p["pos"][1]] += 1.0
-        if obs[3].max() > 0: obs[3] /= obs[3].max()
-        for i, (r, c) in enumerate(self.light_cells):
-            obs[4, r, c] = self.light_dirs[i] / 3.0
-        reachable = self._bfs_dist[self._bfs_dist < 9999]
-        mx = max(float(reachable.max()) if reachable.size > 0 else 1.0, 1.0)
-        obs[5] = 1.0 - np.clip(self._bfs_dist / mx, 0, 1)
-
         fire_cells = np.argwhere(self.fire_map > 0)
         a_blocked  = all(p in self.blocked_exits for p in EXIT_A_POS)
         b_blocked  = all(p in self.blocked_exits for p in EXIT_B_POS)
@@ -551,38 +561,32 @@ class FireEvacEnv(gym.Env):
                      if dist_map[r, c] < 9999]
             return float(np.clip(min(reach) / 20.0, 0.0, 1.0)) if reach else 1.0
 
+        # F1/F2: 출구별 화재 위협 (1=안전, 0=위험)
         f1 = _exit_threat(a_blocked, self._dist_to_exit_A, fire_cells)
         f2 = _exit_threat(b_blocked, self._dist_to_exit_B, fire_cells)
 
         n_alive = len(self.people_data)
         if n_alive == 0 or self._dist_to_exit_A is None or self._dist_to_exit_B is None:
-            f3 = 0.5
+            f3, f7, f8 = 0.5, 0.0, 0.0
         else:
             n_near_a = sum(1 for p in self.people_data
                            if self._dist_to_exit_A[p["pos"][0], p["pos"][1]]
                            <= self._dist_to_exit_B[p["pos"][0], p["pos"][1]])
-            f3 = n_near_a / n_alive
+            f3 = n_near_a / n_alive  # A가 더 가까운 사람 비율
 
-        f4 = self.escaped / self.n_agents
-        f5 = self.dead    / self.n_agents
-        f6 = self.step_count / self.cfg["max_steps"]
-
-        if n_alive == 0 or self._dist_to_exit_A is None:
-            f7, f8 = 0.0, 0.0
-        else:
             near_a = sum(1 for p in self.people_data
                          if self._dist_to_exit_A[p["pos"][0], p["pos"][1]] <= QUEUE_RADIUS)
             near_b = sum(1 for p in self.people_data
                          if self._dist_to_exit_B[p["pos"][0], p["pos"][1]] <= QUEUE_RADIUS)
-            f7 = near_a / n_alive
-            f8 = near_b / n_alive
+            f7 = near_a / n_alive  # 출구 A 혼잡도
+            f8 = near_b / n_alive  # 출구 B 혼잡도
 
-        # F9: 평균 공황 레벨 (Helbing, 2000) — PPO가 패닉 군중 우선 유도 학습
+        f4 = self.escaped / self.n_agents       # 탈출률
+        f5 = self.dead    / self.n_agents       # 사망률
+        f6 = self.step_count / self.cfg["max_steps"]  # 경과 시간 비율
         f9 = float(np.mean([p["panic"] for p in self.people_data])) if n_alive > 0 else 0.0
 
-        scalar_feats = np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9],
-                                 dtype=np.float32)
-        return np.concatenate([obs.flatten(), scalar_feats])
+        return np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9], dtype=np.float32)
 
     def _get_info(self):
         return {

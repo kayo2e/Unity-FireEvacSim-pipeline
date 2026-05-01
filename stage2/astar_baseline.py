@@ -41,9 +41,9 @@ from collections import deque
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
-# train.py 에서 환경 및 상수 공유
-from train import (
-    FireEvacEnv, SCENARIO_CONFIGS,
+# 환경 및 상수 공유
+from train import FireEvacEnv, SCENARIO_CONFIGS
+from env_core import (
     EXIT_A_POS, EXIT_B_POS,
     WALKABLE, EXIT, DELTA,
     BASE_GRID,

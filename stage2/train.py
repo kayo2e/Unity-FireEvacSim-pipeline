@@ -129,7 +129,7 @@ def train_fire_evac(person_counts=(10, 30, 50),
     print(f"총 스텝        : {total_timesteps:,} / 모델")
     print(f"병렬 환경      : {n_envs}개")
     print(f"유도등         : {n_lights}개 셀")
-    print(f"관측 차원      : {obs_dim} (6ch×30×20 + 9 scalar)")
+    print(f"관측 차원      : {obs_dim} (F1~F9 스칼라, 그리드 독립)")
     print(f"Policy         : MlpPolicy | net_arch=[256,256]")
     print(f"학습 디바이스  : {device}")
     print(f"군중 물리      : 밀도 속도 감소(Fruin71) + 공황(Helbing00)")
@@ -287,8 +287,10 @@ def test_fire_evac(n_agents: int = 10, scenario: int = 1,
     if save_results:
         ts        = datetime.now().strftime("%Y%m%d_%H%M%S")
         tag       = f"s{scenario}_{n_agents}ppl_{ts}"
-        csv_path  = f"test_results_{tag}.csv"
-        json_path = f"test_summary_{tag}.json"
+        result_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+        os.makedirs(result_dir, exist_ok=True)
+        csv_path  = os.path.join(result_dir, f"test_results_{tag}.csv")
+        json_path = os.path.join(result_dir, f"test_summary_{tag}.json")
 
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=records[0].keys())
