@@ -1,0 +1,63 @@
+{
+  "model": "astar_rule_baseline",
+  "scenario": 1,
+  "scenario_name": "초기 화재",
+  "n_agents": 50,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 1.0,
+    "std": 0.0,
+    "min": 1.0,
+    "max": 1.0,
+    "median": 1.0
+  },
+  "total_reward": {
+    "mean": 1931.55,
+    "std": 69.534,
+    "min": 1815.84,
+    "max": 2106.92,
+    "median": 1923.18
+  },
+  "steps_taken": {
+    "mean": 59.5333,
+    "std": 10.4522,
+    "min": 43.0,
+    "max": 96.0,
+    "median": 59.0
+  },
+  "escaped": {
+    "mean": 50.0,
+    "std": 0.0,
+    "min": 50.0,
+    "max": 50.0,
+    "median": 50.0
+  },
+  "escaped_A": {
+    "mean": 28.1667,
+    "std": 2.3535,
+    "min": 24.0,
+    "max": 33.0,
+    "median": 28.0
+  },
+  "escaped_B": {
+    "mean": 21.8333,
+    "std": 2.3535,
+    "min": 17.0,
+    "max": 26.0,
+    "median": 22.0
+  },
+  "dead": {
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 7.5333,
+    "std": 2.202,
+    "min": 4.0,
+    "max": 13.0,
+    "median": 7.0
+  }
+}
