@@ -19,6 +19,7 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecNorm
 from stable_baselines3.common.callbacks import BaseCallback
 
 from env_core import FireEvacEnv, SCENARIO_CONFIGS, verify_connectivity
+from astar_baseline import rule_based_action
 
 
 # ══════════════════════════════════════════════
@@ -97,6 +98,76 @@ class EvacTrainCallback(BaseCallback):
 
 
 # ══════════════════════════════════════════════
+# BC 사전학습 (A* → PPO 초기화)
+# ══════════════════════════════════════════════
+def collect_astar_demos(n_agents: int, n_envs_demo: int = 4,
+                        n_steps: int = 3000) -> tuple:
+    """A* 규칙 정책으로 (정규화 obs, action) 쌍 수집 + VecNormalize warmup.
+    DummyVecEnv 고정으로 플랫폼 무관하게 inner env 직접 접근 가능."""
+    env_fns    = [make_env(n_agents=n_agents, seed=200 + i)
+                  for i in range(n_envs_demo)]
+    demo_raw   = DummyVecEnv(env_fns)
+    demo_vnorm = VecNormalize(demo_raw, norm_obs=True, norm_reward=False,
+                              clip_obs=10.0)
+
+    all_obs, all_acts = [], []
+    obs = demo_vnorm.reset()
+
+    for _ in range(n_steps):
+        # DummyVecEnv.envs[i] = EvacCurriculumWrapper, .env = FireEvacEnv
+        actions = np.array(
+            [rule_based_action(inner_env.env)
+             for inner_env in demo_raw.envs],
+            dtype=np.float32,
+        )
+        all_obs.append(obs.copy())
+        all_acts.append(actions.copy())
+        obs, _, _, _ = demo_vnorm.step(actions)
+
+    demo_vnorm.close()
+    return np.concatenate(all_obs), np.concatenate(all_acts)
+
+
+def pretrain_bc(model, obs_arr: np.ndarray, act_arr: np.ndarray,
+                n_epochs: int = 5, batch_size: int = 256, lr: float = 3e-4):
+    """행동 복제(Behavioral Cloning)로 PPO 정책 사전 초기화.
+    A* 규칙 행동을 타깃으로 정책 신경망을 MSE 지도학습."""
+    import torch
+    import torch.nn.functional as F
+
+    obs_t = torch.FloatTensor(obs_arr).to(model.device)
+    act_t = torch.FloatTensor(act_arr).to(model.device)
+    n     = len(obs_t)
+
+    optimizer = torch.optim.Adam(model.policy.parameters(), lr=lr)
+    print(f"  데모 샘플 수: {n:,} | 배치: {batch_size} | 에폭: {n_epochs}")
+
+    for epoch in range(n_epochs):
+        perm       = torch.randperm(n)
+        total_loss = 0.0
+        n_batches  = 0
+
+        for i in range(0, n - batch_size, batch_size):
+            idx  = perm[i: i + batch_size]
+            dist = model.policy.get_distribution(obs_t[idx])
+            pred = dist.distribution.loc          # Gaussian mean
+            loss = F.mse_loss(pred, act_t[idx])
+
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.policy.parameters(), 0.5)
+            optimizer.step()
+
+            total_loss += loss.item()
+            n_batches  += 1
+
+        print(f"  BC Epoch {epoch+1}/{n_epochs} | "
+              f"MSE Loss: {total_loss / max(n_batches, 1):.4f}")
+
+    print("  BC 사전학습 완료.\n")
+
+
+# ══════════════════════════════════════════════
 # 병렬 환경 팩토리
 # ══════════════════════════════════════════════
 def make_env(n_agents: int, seed: int):
@@ -112,7 +183,9 @@ def make_env(n_agents: int, seed: int):
 # ══════════════════════════════════════════════
 def train_fire_evac(person_counts=(10, 30, 50),
                     total_timesteps=300_000,
-                    n_envs=None):
+                    n_envs=None,
+                    bc_demo_steps=3000,
+                    bc_epochs=5):
     import torch
 
     n_cpu = __import__('multiprocessing').cpu_count()
@@ -161,6 +234,15 @@ def train_fire_evac(person_counts=(10, 30, 50),
             policy_kwargs   = dict(net_arch=[256, 256]),
             tensorboard_log = "./fire_evac_log/",
         )
+
+        # A* 데모 수집 → BC 사전학습 → PPO 파인튜닝
+        if bc_demo_steps > 0:
+            print(f"\n[A*→PPO BC 사전학습] 데모 수집 중 "
+                  f"({bc_demo_steps}스텝 × 4환경 = {bc_demo_steps*4:,}샘플)...")
+            obs_demo, act_demo = collect_astar_demos(
+                n_agents=n, n_envs_demo=4, n_steps=bc_demo_steps)
+            pretrain_bc(model, obs_demo, act_demo,
+                        n_epochs=bc_epochs, batch_size=256, lr=3e-4)
 
         model.learn(
             total_timesteps = total_timesteps,
@@ -320,6 +402,10 @@ if __name__ == "__main__":
     parser.add_argument("--test-episodes", type=int, default=10)
     parser.add_argument("--no-save",       action="store_true")
     parser.add_argument("--render",        action="store_true")
+    parser.add_argument("--bc-steps",      type=int, default=3000,
+                        help="BC 사전학습용 A* 데모 수집 스텝 수 (0=비활성화)")
+    parser.add_argument("--bc-epochs",     type=int, default=5,
+                        help="BC 사전학습 에폭 수")
     args = parser.parse_args()
 
     if args.mode == "check":
@@ -334,7 +420,9 @@ if __name__ == "__main__":
     elif args.mode == "train":
         train_fire_evac(person_counts=args.people,
                         total_timesteps=args.steps,
-                        n_envs=args.n_envs)
+                        n_envs=args.n_envs,
+                        bc_demo_steps=args.bc_steps,
+                        bc_epochs=args.bc_epochs)
 
     elif args.mode == "test":
         test_fire_evac(n_agents=args.test_n,
