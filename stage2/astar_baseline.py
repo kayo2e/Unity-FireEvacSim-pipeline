@@ -2,13 +2,24 @@
 A* 규칙 기반 베이스라인 | 화재대피유도시스템 Stage 2
 =====================================================
 PPO 모델과의 공정한 성능 비교를 위한 베이스라인.
+rule_based_action()은 train.py의 BC 사전학습에서도 데모 생성용으로 재사용된다.
 
 [비교 구조]
-  PPO 모델        : 환경 관측 → 신경망 → [exit_A_cost, exit_B_cost, crowd_weight] → 유도등
-  A* 베이스라인   : 환경 관측 → 규칙 기반 → [exit_A_cost, exit_B_cost, crowd_weight] → 유도등
+  A* 베이스라인        : 환경 관측 → 규칙 기반 → [exit_A_cost, exit_B_cost, crowd_weight] → 유도등
+  PPO (단독)           : 환경 관측 → 신경망   → [exit_A_cost, exit_B_cost, crowd_weight] → 유도등
+  PPO + BC 사전학습    : A* 데모로 신경망 초기화 → PPO RL 파인튜닝 → 유도등
 
-제어 메커니즘(유도등 → 사람 이동)은 완전히 동일.
-차이는 비용 결정 방식: 학습된 정책 vs 규칙 기반 휴리스틱.
+제어 메커니즘(유도등 → 사람 이동)은 세 방식 모두 완전히 동일.
+차이는 비용 결정 방식: 규칙 / 학습 / A*로 초기화된 학습.
+
+[BC 사전학습 연동 — train.py]
+  train.py는 학습 시작 전 이 파일의 rule_based_action()을 호출해
+  A* 행동 시연(demonstration)을 수집한 뒤 PPO 신경망을 지도학습으로 초기화한다.
+  이후 PPO RL로 파인튜닝해 A* 수준에서 출발해 분산 유도까지 추가 학습한다.
+
+  collect_astar_demos()  → 12,000 샘플 수집 (3000스텝 × 4환경)
+  pretrain_bc()          → MSE 지도학습으로 PPO 신경망 초기화 (기본 5에폭)
+  model.learn()          → PPO RL 파인튜닝
 
 [병목(Bottleneck) 설계]
   - EXIT_CAPACITY: 출구 셀당 스텝당 최대 탈출 인원 제한 (train.py와 동일 환경)
@@ -21,10 +32,11 @@ PPO 모델과의 공정한 성능 비교를 위한 베이스라인.
   - 병목 발생 시 모든 인원이 가까운 출구에 집중 → 대기열 형성 → 화재 도달 시 집단 사망
   - F7/F8(출구 근접 혼잡도) 피처를 사용하지 않아 부하 분산 불가
 
-[PPO 모델의 강점]
-  - F7/F8 피처로 출구별 혼잡도를 실시간 관측
+[PPO + BC 사전학습의 강점]
+  - A* 수준의 기본 경로 선택에서 학습 시작 → 초반 랜덤 탐색 낭비 없음
+  - F7/F8 피처로 출구별 혼잡도를 실시간 관측해 분산 유도 추가 학습
   - exit_A_cost / exit_B_cost를 차별화해 혼잡한 출구를 우회
-  - 두 출구에 분산 탈출 시 +15 보상 → 분산 정책 학습
+  - 두 출구에 분산 탈출 시 +15 보상 → 분산 정책 강화
 
 실행:
     python astar_baseline.py --scenario 1 --n 10 --episodes 30
@@ -42,7 +54,7 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 # 환경 및 상수 공유
-from train import FireEvacEnv, SCENARIO_CONFIGS
+from env_core import FireEvacEnv, SCENARIO_CONFIGS
 from env_core import (
     EXIT_A_POS, EXIT_B_POS,
     WALKABLE, EXIT, DELTA,
