@@ -1,0 +1,63 @@
+{
+  "model": "astar_rule_baseline",
+  "scenario": 2,
+  "scenario_name": "화재 확산",
+  "n_agents": 30,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.9267,
+    "std": 0.0767,
+    "min": 0.7333,
+    "max": 1.0,
+    "median": 0.9333
+  },
+  "total_reward": {
+    "mean": 1349.881,
+    "std": 206.2166,
+    "min": 1017.37,
+    "max": 1938.26,
+    "median": 1302.425
+  },
+  "steps_taken": {
+    "mean": 72.0667,
+    "std": 17.3435,
+    "min": 46.0,
+    "max": 109.0,
+    "median": 69.5
+  },
+  "escaped": {
+    "mean": 27.8,
+    "std": 2.3007,
+    "min": 22.0,
+    "max": 30.0,
+    "median": 28.0
+  },
+  "escaped_A": {
+    "mean": 17.0,
+    "std": 7.3439,
+    "min": 0.0,
+    "max": 29.0,
+    "median": 16.0
+  },
+  "escaped_B": {
+    "mean": 10.8,
+    "std": 7.4628,
+    "min": 0.0,
+    "max": 28.0,
+    "median": 11.0
+  },
+  "dead": {
+    "mean": 2.2,
+    "std": 2.3007,
+    "min": 0.0,
+    "max": 8.0,
+    "median": 2.0
+  },
+  "max_fire_cells": {
+    "mean": 311.7667,
+    "std": 112.6223,
+    "min": 128.0,
+    "max": 580.0,
+    "median": 299.5
+  }
+}

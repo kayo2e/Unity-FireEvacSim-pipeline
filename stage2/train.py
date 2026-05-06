@@ -101,9 +101,10 @@ class EvacTrainCallback(BaseCallback):
 # BC 사전학습 (A* → PPO 초기화)
 # ══════════════════════════════════════════════
 def collect_astar_demos(n_agents: int, n_envs_demo: int = 4,
-                        n_steps: int = 3000) -> tuple:
+                        n_steps: int = 3000, s3_steps: int = 2000) -> tuple:
     """A* 규칙 정책으로 (정규화 obs, action) 쌍 수집 + VecNormalize warmup.
-    DummyVecEnv 고정으로 플랫폼 무관하게 inner env 직접 접근 가능."""
+    DummyVecEnv 고정으로 플랫폼 무관하게 inner env 직접 접근 가능.
+    s3_steps: 커리큘럼 수집 후 S3 전용 추가 수집 스텝 수."""
     env_fns    = [make_env(n_agents=n_agents, seed=200 + i)
                   for i in range(n_envs_demo)]
     demo_raw   = DummyVecEnv(env_fns)
@@ -114,15 +115,29 @@ def collect_astar_demos(n_agents: int, n_envs_demo: int = 4,
     obs = demo_vnorm.reset()
 
     for _ in range(n_steps):
-        # DummyVecEnv.envs[i] = EvacCurriculumWrapper, .env = FireEvacEnv
+        # obs[i]는 VecNormalize 정규화 전 원시 obs가 필요하므로 env에서 직접 조회
         actions = np.array(
-            [rule_based_action(inner_env.env)
+            [rule_based_action(inner_env.env._get_obs())
              for inner_env in demo_raw.envs],
             dtype=np.float32,
         )
         all_obs.append(obs.copy())
         all_acts.append(actions.copy())
         obs, _, _, _ = demo_vnorm.step(actions)
+
+    # S3 전용 데모: 동일 VecNormalize 통계로 exit_a_cost=50 행동을 명시적으로 학습
+    if s3_steps > 0:
+        for e in demo_raw.envs:
+            e.env = FireEvacEnv(scenario=3, n_agents=n_agents)
+        obs = demo_vnorm.reset()
+        for _ in range(s3_steps):
+            actions = np.array(
+                [rule_based_action(e.env._get_obs()) for e in demo_raw.envs],
+                dtype=np.float32,
+            )
+            all_obs.append(obs.copy())
+            all_acts.append(actions.copy())
+            obs, _, _, _ = demo_vnorm.step(actions)
 
     demo_vnorm.close()
     return np.concatenate(all_obs), np.concatenate(all_acts)
@@ -181,12 +196,26 @@ def make_env(n_agents: int, seed: int):
 # ══════════════════════════════════════════════
 # 학습
 # ══════════════════════════════════════════════
+def _latest_run_dir(base: str) -> str | None:
+    """runs/ 아래에서 가장 최근 타임스탬프 폴더를 반환."""
+    import os
+    if not os.path.isdir(base):
+        return None
+    entries = sorted(
+        (e for e in os.listdir(base) if os.path.isdir(os.path.join(base, e))),
+        reverse=True,
+    )
+    return os.path.join(base, entries[0]) if entries else None
+
+
 def train_fire_evac(person_counts=(10, 30, 50),
                     total_timesteps=300_000,
                     n_envs=None,
                     bc_demo_steps=3000,
-                    bc_epochs=5):
-    import torch
+                    bc_s3_steps=2000,
+                    bc_epochs=10):
+    import os, torch
+    from datetime import datetime
 
     n_cpu = __import__('multiprocessing').cpu_count()
     if n_envs is None:
@@ -202,11 +231,16 @@ def train_fire_evac(person_counts=(10, 30, 50),
     print(f"총 스텝        : {total_timesteps:,} / 모델")
     print(f"병렬 환경      : {n_envs}개")
     print(f"유도등         : {n_lights}개 셀")
-    print(f"관측 차원      : {obs_dim} (F1~F9 스칼라, 그리드 독립)")
+    print(f"관측 차원      : {obs_dim} (F1~F15 스칼라, 그리드 독립)")
     print(f"Policy         : MlpPolicy | net_arch=[256,256]")
     print(f"학습 디바이스  : {device}")
     print(f"군중 물리      : 밀도 속도 감소(Fruin71) + 공황(Helbing00)")
     print("=" * 62)
+
+    base_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "runs")
+    run_dir  = os.path.join(base_dir, datetime.now().strftime("%Y%m%d_%H%M%S"))
+    os.makedirs(run_dir, exist_ok=True)
+    print(f"저장 폴더      : {run_dir}")
 
     for n in person_counts:
         print(f"\n{'─'*62}\n인원수 {n}명 | 커리큘럼 학습 시작\n{'─'*62}")
@@ -237,10 +271,12 @@ def train_fire_evac(person_counts=(10, 30, 50),
 
         # A* 데모 수집 → BC 사전학습 → PPO 파인튜닝
         if bc_demo_steps > 0:
+            total_samples = (bc_demo_steps + bc_s3_steps) * 4
             print(f"\n[A*→PPO BC 사전학습] 데모 수집 중 "
-                  f"({bc_demo_steps}스텝 × 4환경 = {bc_demo_steps*4:,}샘플)...")
+                  f"(커리큘럼 {bc_demo_steps*4:,} + S3 {bc_s3_steps*4:,} = {total_samples:,}샘플)...")
             obs_demo, act_demo = collect_astar_demos(
-                n_agents=n, n_envs_demo=4, n_steps=bc_demo_steps)
+                n_agents=n, n_envs_demo=4, n_steps=bc_demo_steps,
+                s3_steps=bc_s3_steps)
             pretrain_bc(model, obs_demo, act_demo,
                         n_epochs=bc_epochs, batch_size=256, lr=3e-4)
 
@@ -398,15 +434,31 @@ if __name__ == "__main__":
     parser.add_argument("--steps",         type=int, default=300_000)
     parser.add_argument("--n-envs",        type=int, default=None)
     parser.add_argument("--test-n",        type=int, default=10)
+    parser.add_argument("--n",             type=int, default=None,
+                        help="--test-n 단축 별칭")
     parser.add_argument("--test-scenario", type=int, default=1)
     parser.add_argument("--test-episodes", type=int, default=10)
+    parser.add_argument("--episodes",      type=int, default=None,
+                        help="--test-episodes 단축 별칭")
+    parser.add_argument("--all-scenarios", action="store_true",
+                        help="시나리오 1~4 전부 테스트")
     parser.add_argument("--no-save",       action="store_true")
     parser.add_argument("--render",        action="store_true")
     parser.add_argument("--bc-steps",      type=int, default=3000,
-                        help="BC 사전학습용 A* 데모 수집 스텝 수 (0=비활성화)")
-    parser.add_argument("--bc-epochs",     type=int, default=5,
+                        help="BC 사전학습용 커리큘럼 데모 수집 스텝 수 (0=비활성화)")
+    parser.add_argument("--bc-s3-steps",   type=int, default=2000,
+                        help="BC 사전학습용 S3 전용 데모 추가 수집 스텝 수")
+    parser.add_argument("--bc-epochs",     type=int, default=10,
                         help="BC 사전학습 에폭 수")
     args = parser.parse_args()
+
+    # 단축 별칭 처리
+    if args.n is not None:
+        args.test_n = args.n
+    if args.episodes is not None:
+        args.test_episodes = args.episodes
+    if args.all_scenarios and args.mode == "train":
+        args.mode = "test"
 
     if args.mode == "check":
         print("환경 검증 중...")
@@ -422,11 +474,28 @@ if __name__ == "__main__":
                         total_timesteps=args.steps,
                         n_envs=args.n_envs,
                         bc_demo_steps=args.bc_steps,
+                        bc_s3_steps=args.bc_s3_steps,
                         bc_epochs=args.bc_epochs)
 
     elif args.mode == "test":
-        test_fire_evac(n_agents=args.test_n,
-                       scenario=args.test_scenario,
-                       n_episodes=args.test_episodes,
-                       save_results=not args.no_save,
-                       render=args.render)
+        scenarios = [1, 2, 3, 4] if args.all_scenarios else [args.test_scenario]
+        all_summaries = {}
+        for sc in scenarios:
+            _, summary = test_fire_evac(n_agents=args.test_n,
+                                        scenario=sc,
+                                        n_episodes=args.test_episodes,
+                                        save_results=not args.no_save,
+                                        render=args.render)
+            all_summaries[sc] = summary
+
+        if args.all_scenarios:
+            from env_core import SCENARIO_CONFIGS
+            print(f"\n{'═'*62}")
+            print("  전체 시나리오 생존율 (PPO 모델)")
+            print(f"{'─'*62}")
+            for sc, s in all_summaries.items():
+                sr = s["survival_rate"]
+                print(f"  S{sc} {s['scenario_name']:<8} | "
+                      f"생존율 {sr['mean']:.1%} ± {sr['std']:.1%}  "
+                      f"(min {sr['min']:.0%} ~ max {sr['max']:.0%})")
+            print(f"{'═'*62}")
