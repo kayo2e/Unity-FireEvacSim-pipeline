@@ -98,11 +98,19 @@ EXIT_POSITIONS = [(7, 10), (7, 11), (34, 10), (34, 11)]
 EXIT_A_POS     = [(7, 10), (7, 11)]
 EXIT_B_POS     = [(34, 10), (34, 11)]
 
+_S3_FIRE_ZONE_A = [
+    (r, c) for r in range(3, 7) for c in range(9, 13)
+]  # Exit A(7,10-11) 위협 구역 — rows 3-6, cols 9-12
+_S3_FIRE_ZONE_B = [
+    (r, c) for r in range(30, 34) for c in range(9, 13)
+]  # Exit B(34,10-11) 위협 구역 — rows 30-33, cols 9-12
+# 에피소드마다 A/B 중 하나를 50% 확률로 선택 → 공정한 비교
+
 SCENARIO_CONFIGS = {
-    1: {"name":"초기 화재",  "fire_count":(1,1),  "spread_prob":0.05, "smoke_radius":0, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":[(2,1)],   "max_steps":200},
-    2: {"name":"화재 확산",  "fire_count":(2,3),  "spread_prob":0.12, "smoke_radius":2, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":None,      "max_steps":250},
-    3: {"name":"출구 위협",  "fire_count":(1,1),  "spread_prob":0.25, "smoke_radius":4, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":[(5,10)],  "max_steps":350},
-    4: {"name":"폭발 붕괴",  "fire_count":(3,6),  "spread_prob":0.20, "smoke_radius":4, "exit_block_prob":0.2, "collapse_prob":0.15, "fire_fixed":None,      "max_steps":600},
+    1: {"name":"초기 화재",  "fire_count":(1,1),  "spread_prob":0.05, "smoke_radius":0, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":[(2,1)],   "fire_zone":None,                              "max_steps":200},
+    2: {"name":"화재 확산",  "fire_count":(2,3),  "spread_prob":0.12, "smoke_radius":2, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":None,      "fire_zone":None,                              "max_steps":250},
+    3: {"name":"출구 위협",  "fire_count":(1,1),  "spread_prob":0.25, "smoke_radius":4, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":None,      "fire_zone":[_S3_FIRE_ZONE_A, _S3_FIRE_ZONE_B], "max_steps":350},
+    4: {"name":"폭발 붕괴",  "fire_count":(3,6),  "spread_prob":0.20, "smoke_radius":4, "exit_block_prob":0.2, "collapse_prob":0.15, "fire_fixed":None,      "fire_zone":None,                              "max_steps":600},
 }
 
 
@@ -138,9 +146,9 @@ class FireEvacEnv(gym.Env):
         self.n_lights  = len(self.light_cells)
         self.light_idx = {cell: i for i, cell in enumerate(self.light_cells)}
 
-        # 관측: 스칼라 피처 9개 (F1~F9) — 그리드 크기 독립, Unity 이식 가능
+        # 관측: 스칼라 피처 15개 (F1~F15) — 그리드 크기 독립, Unity 이식 가능
         self.observation_space = spaces.Box(
-            low=0.0, high=1.0, shape=(9,), dtype=np.float32
+            low=0.0, high=1.0, shape=(15,), dtype=np.float32
         )
         self.action_space = spaces.Box(
             low=np.array( [5.0,  5.0,  0.5]),
@@ -157,6 +165,7 @@ class FireEvacEnv(gym.Env):
         self._dist_to_exit_A = self._dist_to_exit_B = None
         self.prev_fire_map   = None
         self._occupancy: dict = {}
+        self._prev_f1 = self._prev_f2 = 1.0  # F14/F15 계산용 이전 스텝 위협값
 
     # ──────────────────────────────────────────
     # reset
@@ -195,8 +204,17 @@ class FireEvacEnv(gym.Env):
         # 화재
         self.fire_map = np.zeros((self.ROWS, self.COLS), dtype=np.float32)
         walkable = self._get_walkable()
+        walkable_set = set(walkable)
         if cfg["fire_fixed"]:
             for p in cfg["fire_fixed"]: self.fire_map[p] = 1.0
+        elif cfg["fire_zone"]:
+            raw = cfg["fire_zone"]
+            # 리스트의 리스트면 에피소드마다 하나를 50% 확률로 선택
+            chosen = random.choice(raw) if isinstance(raw[0], list) else raw
+            zone = [p for p in chosen if p in walkable_set]
+            n = random.randint(*cfg["fire_count"])
+            for p in random.sample(zone, min(n, len(zone))):
+                self.fire_map[p] = 1.0
         else:
             n = random.randint(*cfg["fire_count"])
             for p in random.sample(walkable, min(n, len(walkable))):
@@ -223,6 +241,7 @@ class FireEvacEnv(gym.Env):
         self.prev_fire_map = self.fire_map.copy()
         self.step_count    = self.escaped = self.dead = 0
         self.escaped_A     = self.escaped_B = 0
+        self._prev_f1 = self._prev_f2 = 1.0
 
         self._occupancy = {}
         for p in self.people_data:
@@ -314,7 +333,8 @@ class FireEvacEnv(gym.Env):
                 alive.append(p)
         self.people_data = alive
 
-        # 스텝별 출구 불균형 패널티 — F7/F8 기반, A*는 학습 불가능한 신호
+        # 스텝별 출구 불균형 패널티 — 두 출구 모두 안전할 때만 적용
+        # 한쪽 출구가 화재에 가까우면 전원을 반대 출구로 보내는 것이 정답이므로 패널티 제거
         n_alive = len(self.people_data)
         if (n_alive > 1
                 and self._dist_to_exit_A is not None
@@ -323,7 +343,16 @@ class FireEvacEnv(gym.Env):
                          if self._dist_to_exit_A[p["pos"][0], p["pos"][1]] <= QUEUE_RADIUS)
             near_b = sum(1 for p in self.people_data
                          if self._dist_to_exit_B[p["pos"][0], p["pos"][1]] <= QUEUE_RADIUS)
-            reward -= abs(near_a - near_b) / n_alive * 0.3
+            fire_cells_pos = np.argwhere(self.fire_map > 0)
+            def _min_fire_dist(dist_map):
+                if len(fire_cells_pos) == 0:
+                    return 999.0
+                d = [dist_map[r, c] for r, c in fire_cells_pos if dist_map[r, c] < 9999]
+                return float(min(d)) if d else 999.0
+            a_fire_dist = _min_fire_dist(self._dist_to_exit_A)
+            b_fire_dist = _min_fire_dist(self._dist_to_exit_B)
+            if a_fire_dist > 5 and b_fire_dist > 5:
+                reward -= abs(near_a - near_b) / n_alive * 1.0
 
         terminated = len(self.people_data) == 0
         truncated  = self.step_count >= self.cfg["max_steps"]
@@ -566,6 +595,7 @@ class FireEvacEnv(gym.Env):
         f2 = _exit_threat(b_blocked, self._dist_to_exit_B, fire_cells)
 
         n_alive = len(self.people_data)
+        near_a = near_b = 0
         if n_alive == 0 or self._dist_to_exit_A is None or self._dist_to_exit_B is None:
             f3, f7, f8 = 0.5, 0.0, 0.0
         else:
@@ -581,12 +611,30 @@ class FireEvacEnv(gym.Env):
             f7 = near_a / n_alive  # 출구 A 혼잡도
             f8 = near_b / n_alive  # 출구 B 혼잡도
 
-        f4 = self.escaped / self.n_agents       # 탈출률
-        f5 = self.dead    / self.n_agents       # 사망률
-        f6 = self.step_count / self.cfg["max_steps"]  # 경과 시간 비율
-        f9 = float(np.mean([p["panic"] for p in self.people_data])) if n_alive > 0 else 0.0
+        f4  = self.escaped / self.n_agents
+        f5  = self.dead    / self.n_agents
+        f6  = self.step_count / self.cfg["max_steps"]
+        f9  = float(np.mean([p["panic"] for p in self.people_data])) if n_alive > 0 else 0.0
+        f10 = near_a / self.n_agents  # 출구 A 혼잡 절댓값
+        f11 = near_b / self.n_agents  # 출구 B 혼잡 절댓값
 
-        return np.array([f1, f2, f3, f4, f5, f6, f7, f8, f9], dtype=np.float32)
+        # F12/F13: 화재 무게중심 위치 (공간 위치 — 그리드 크기 정규화)
+        if len(fire_cells) > 0:
+            f12 = float(np.mean(fire_cells[:, 0])) / self.ROWS
+            f13 = float(np.mean(fire_cells[:, 1])) / self.COLS
+        else:
+            f12 = f13 = 0.5  # 화재 없음 → 중립
+
+        # F14/F15: 화재의 출구 접근 속도 (이전 스텝 대비 위협 증가량)
+        f14 = float(np.clip(self._prev_f1 - f1, 0.0, 1.0))
+        f15 = float(np.clip(self._prev_f2 - f2, 0.0, 1.0))
+        self._prev_f1 = f1
+        self._prev_f2 = f2
+
+        return np.array(
+            [f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15],
+            dtype=np.float32
+        )
 
     def _get_info(self):
         return {
