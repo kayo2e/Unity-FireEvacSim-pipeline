@@ -219,7 +219,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A* 규칙 기반 베이스라인")
     parser.add_argument("--scenario",      type=int,  default=1, choices=[1, 2, 3, 4])
     parser.add_argument("--all-scenarios", action="store_true", help="시나리오 1~4 전부 실행")
-    parser.add_argument("--n",             type=int,  default=10, help="인원수")
+    parser.add_argument("--n",             type=int,  default=None,
+                        help="인원수 (미지정 시 시나리오 권장값 자동 적용)")
     parser.add_argument("--episodes",      type=int,  default=30, help="에피소드 수")
     parser.add_argument("--no-save",       action="store_true")
     parser.add_argument("--render",        action="store_true")
@@ -229,9 +230,10 @@ if __name__ == "__main__":
 
     all_summaries = {}
     for sc in scenarios:
+        n_agents = args.n if args.n is not None else SCENARIO_CONFIGS[sc]["n_agents"]
         _, summary = run_test(
             scenario=sc,
-            n_agents=args.n,
+            n_agents=n_agents,
             n_episodes=args.episodes,
             save_results=not args.no_save,
             render=args.render,
@@ -244,9 +246,13 @@ if __name__ == "__main__":
         print(f"{'─'*62}")
         for sc, s in all_summaries.items():
             sr = s["survival_rate"]
-            print(f"  S{sc} {s['scenario_name']:<8} | "
+            n  = s["n_agents"]
+            print(f"  S{sc} {s['scenario_name']:<8} ({n:>2}명) | "
                   f"생존율 {sr['mean']:.1%} ± {sr['std']:.1%}  "
                   f"(min {sr['min']:.0%} ~ max {sr['max']:.0%})")
         print(f"{'═'*62}")
-        print("\n  ※ PPO 모델 결과와 비교하려면:")
-        print("    python train.py --mode test --test-n 10 --test-scenario X --test-episodes 30")
+        print("\n  ※ PPO 모델 결과와 비교하려면 (시나리오별 권장 인원수 사용):")
+        for sc in scenarios:
+            n = SCENARIO_CONFIGS[sc]["n_agents"]
+            print(f"    python train.py --mode test --test-n {n} "
+                  f"--test-scenario {sc} --test-episodes 30")
