@@ -98,19 +98,83 @@ EXIT_POSITIONS = [(7, 10), (7, 11), (34, 10), (34, 11)]
 EXIT_A_POS     = [(7, 10), (7, 11)]
 EXIT_B_POS     = [(34, 10), (34, 11)]
 
-_S3_FIRE_ZONE_A = [
+_EXIT_THREAT_ZONE_A = [
     (r, c) for r in range(3, 7) for c in range(9, 13)
-]  # Exit A(7,10-11) 위협 구역 — rows 3-6, cols 9-12
-_S3_FIRE_ZONE_B = [
-    (r, c) for r in range(30, 34) for c in range(9, 13)
-]  # Exit B(34,10-11) 위협 구역 — rows 30-33, cols 9-12
-# 에피소드마다 A/B 중 하나를 50% 확률로 선택 → 공정한 비교
+]  # Exit A(7,10-11) 위협 구역 — rows 3-6, cols 9-12, 16/16 walkable, 거리 1~5
+_EXIT_THREAT_ZONE_B = [
+    (r, c) for r in range(35, 39) for c in range(9, 13)
+]  # Exit B(34,10-11) 위협 구역 — rows 35-38, cols 9-12, 16/16 walkable, 거리 1~5 (A와 대칭)
+_CENTER_ZONE = [
+    (r, c) for r in range(17, 23) for c in range(4, 7)
+]  # 건물 중앙 복도 구역 — rows 17-22, cols 4-6, 18셀 모두 HALL, 양쪽 출구에서 균등 거리
 
 SCENARIO_CONFIGS = {
-    1: {"name":"초기 화재",  "fire_count":(1,1),  "spread_prob":0.05, "smoke_radius":0, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":[(2,1)],   "fire_zone":None,                              "max_steps":200},
-    2: {"name":"화재 확산",  "fire_count":(2,3),  "spread_prob":0.12, "smoke_radius":2, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":None,      "fire_zone":None,                              "max_steps":250},
-    3: {"name":"출구 위협",  "fire_count":(1,1),  "spread_prob":0.25, "smoke_radius":4, "exit_block_prob":0.0, "collapse_prob":0.0,  "fire_fixed":None,      "fire_zone":[_S3_FIRE_ZONE_A, _S3_FIRE_ZONE_B], "max_steps":350},
-    4: {"name":"폭발 붕괴",  "fire_count":(3,6),  "spread_prob":0.20, "smoke_radius":4, "exit_block_prob":0.2, "collapse_prob":0.15, "fire_fixed":None,      "fire_zone":None,                              "max_steps":600},
+    # S1: 기본 탈출 — 고정 화재, 단순 경로. Sanity check용. 둘 다 ~100% 예상.
+    1: {
+        "name":            "기본 탈출",
+        "fire_count":      (1, 1),
+        "spread_prob":     0.05,
+        "smoke_radius":    0,
+        "exit_block_prob": 0.0,
+        "collapse_prob":   0.0,
+        "fire_fixed":      [(2, 1)],
+        "fire_zone":       None,
+        "fire_zone_multi": None,
+        "max_steps":       200,
+        "n_agents":        10,
+    },
+    # S2: 점진적 위협 — 중앙 화재가 출구 방향으로 천천히 확산.
+    # F14/F15(위협 변화 속도)를 활용해 PPO가 선제적으로 경로 전환할 수 있음.
+    # A*는 F1/F2가 실제로 낮아진 뒤에야 반응 → PPO 소폭 유리.
+    2: {
+        "name":            "점진적 위협",
+        "fire_count":      (1, 2),
+        "spread_prob":     0.10,
+        "smoke_radius":    3,
+        "exit_block_prob": 0.0,
+        "collapse_prob":   0.0,
+        "fire_fixed":      None,
+        "fire_zone":       _CENTER_ZONE,
+        "fire_zone_multi": None,
+        "max_steps":       250,
+        "n_agents":        10,
+    },
+    # S3: 출구 혼잡 분산 — 화재가 출구에서 멀어 양쪽 모두 안전.
+    # 20명이 가까운 출구에 몰리면 병목 발생. A*는 F7/F8 미사용으로 혼잡 방치.
+    # PPO는 F7/F8로 출구별 혼잡 감지 → 반대편 분산 유도 → 명확히 PPO 유리.
+    3: {
+        "name":            "출구 혼잡",
+        "fire_count":      (1, 1),
+        "spread_prob":     0.05,
+        "smoke_radius":    2,
+        "exit_block_prob": 0.0,
+        "collapse_prob":   0.0,
+        "fire_fixed":      None,
+        "fire_zone":       _CENTER_ZONE,
+        "fire_zone_multi": None,
+        "max_steps":       180,
+        "n_agents":        20,
+    },
+    # S4: 부분 위협 — 출구 A·B 구역 각각 60% 확률로 독립 점화.
+    # 양쪽 동시 위협(36%), 단일 위협(48%), 무위협(16%)이 혼재.
+    # 이진 결정이 아니므로 A*의 단순 threshold 규칙이 실패.
+    # PPO는 F1/F2 위협 + F7/F8 혼잡을 함께 고려한 trade-off 학습 → PPO 유리.
+    4: {
+        "name":            "부분 위협",
+        "fire_count":      (1, 1),
+        "spread_prob":     0.18,
+        "smoke_radius":    3,
+        "exit_block_prob": 0.0,
+        "collapse_prob":   0.0,
+        "fire_fixed":      None,
+        "fire_zone":       None,
+        "fire_zone_multi": [
+            {"zone": _EXIT_THREAT_ZONE_A, "prob": 0.6},
+            {"zone": _EXIT_THREAT_ZONE_B, "prob": 0.6},
+        ],
+        "max_steps":       280,
+        "n_agents":        15,
+    },
 }
 
 
@@ -186,11 +250,11 @@ class FireEvacEnv(gym.Env):
                             and random.random() < cfg["collapse_prob"]):
                         self.grid[r, c] = WALL
 
-        # 출구 폐쇄
+        # 출구 폐쇄 — EXIT 셀 자체를 WALL로 전환해 F1/F2에 즉시 반영
         self.blocked_exits = set()
         if cfg["exit_block_prob"] > 0 and random.random() < cfg["exit_block_prob"]:
-            groups = [[(8,11),(8,12)], [(22,8),(22,9),(22,10)]]
-            for cell in random.choice(groups):
+            target = random.choice([EXIT_A_POS, EXIT_B_POS])
+            for cell in target:
                 self.blocked_exits.add(cell)
                 self.grid[cell[0], cell[1]] = WALL
 
@@ -207,11 +271,16 @@ class FireEvacEnv(gym.Env):
         walkable_set = set(walkable)
         if cfg["fire_fixed"]:
             for p in cfg["fire_fixed"]: self.fire_map[p] = 1.0
+        elif cfg.get("fire_zone_multi"):
+            # 각 구역을 독립 확률로 점화 — 동시 다중 위협 구현
+            for zone_cfg in cfg["fire_zone_multi"]:
+                if random.random() < zone_cfg["prob"]:
+                    zone = [p for p in zone_cfg["zone"] if p in walkable_set]
+                    if zone:
+                        self.fire_map[random.choice(zone)] = 1.0
         elif cfg["fire_zone"]:
             raw = cfg["fire_zone"]
-            # 리스트의 리스트면 에피소드마다 하나를 50% 확률로 선택
-            chosen = random.choice(raw) if isinstance(raw[0], list) else raw
-            zone = [p for p in chosen if p in walkable_set]
+            zone = [p for p in raw if p in walkable_set]
             n = random.randint(*cfg["fire_count"])
             for p in random.sample(zone, min(n, len(zone))):
                 self.fire_map[p] = 1.0

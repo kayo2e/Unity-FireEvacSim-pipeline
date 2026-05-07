@@ -101,10 +101,11 @@ class EvacTrainCallback(BaseCallback):
 # BC 사전학습 (A* → PPO 초기화)
 # ══════════════════════════════════════════════
 def collect_astar_demos(n_agents: int, n_envs_demo: int = 4,
-                        n_steps: int = 3000, s3_steps: int = 2000) -> tuple:
+                        n_steps: int = 3000, s4_steps: int = 2000) -> tuple:
     """A* 규칙 정책으로 (정규화 obs, action) 쌍 수집 + VecNormalize warmup.
     DummyVecEnv 고정으로 플랫폼 무관하게 inner env 직접 접근 가능.
-    s3_steps: 커리큘럼 수집 후 S3 전용 추가 수집 스텝 수."""
+    s4_steps: 커리큘럼 수집 후 S4(부분 위협) 전용 추가 수집 스텝 수.
+             S4는 양쪽 출구 동시 위협 등 복합 상황을 포함해 BC 다양성 확보."""
     env_fns    = [make_env(n_agents=n_agents, seed=200 + i)
                   for i in range(n_envs_demo)]
     demo_raw   = DummyVecEnv(env_fns)
@@ -125,12 +126,13 @@ def collect_astar_demos(n_agents: int, n_envs_demo: int = 4,
         all_acts.append(actions.copy())
         obs, _, _, _ = demo_vnorm.step(actions)
 
-    # S3 전용 데모: 동일 VecNormalize 통계로 exit_a_cost=50 행동을 명시적으로 학습
-    if s3_steps > 0:
+    # S4 전용 데모: 부분 위협(양쪽 동시 위협 포함) 상황의 A* 행동을 명시적으로 학습
+    if s4_steps > 0:
+        s4_n = SCENARIO_CONFIGS[4]["n_agents"]
         for e in demo_raw.envs:
-            e.env = FireEvacEnv(scenario=3, n_agents=n_agents)
+            e.env = FireEvacEnv(scenario=4, n_agents=s4_n)
         obs = demo_vnorm.reset()
-        for _ in range(s3_steps):
+        for _ in range(s4_steps):
             actions = np.array(
                 [rule_based_action(e.env._get_obs()) for e in demo_raw.envs],
                 dtype=np.float32,
@@ -212,7 +214,7 @@ def train_fire_evac(person_counts=(10, 30, 50),
                     total_timesteps=300_000,
                     n_envs=None,
                     bc_demo_steps=3000,
-                    bc_s3_steps=2000,
+                    bc_s4_steps=2000,
                     bc_epochs=10):
     import os, torch
     from datetime import datetime
@@ -271,12 +273,12 @@ def train_fire_evac(person_counts=(10, 30, 50),
 
         # A* 데모 수집 → BC 사전학습 → PPO 파인튜닝
         if bc_demo_steps > 0:
-            total_samples = (bc_demo_steps + bc_s3_steps) * 4
+            total_samples = (bc_demo_steps + bc_s4_steps) * 4
             print(f"\n[A*→PPO BC 사전학습] 데모 수집 중 "
-                  f"(커리큘럼 {bc_demo_steps*4:,} + S3 {bc_s3_steps*4:,} = {total_samples:,}샘플)...")
+                  f"(커리큘럼 {bc_demo_steps*4:,} + S4 {bc_s4_steps*4:,} = {total_samples:,}샘플)...")
             obs_demo, act_demo = collect_astar_demos(
                 n_agents=n, n_envs_demo=4, n_steps=bc_demo_steps,
-                s3_steps=bc_s3_steps)
+                s4_steps=bc_s4_steps)
             pretrain_bc(model, obs_demo, act_demo,
                         n_epochs=bc_epochs, batch_size=256, lr=3e-4)
 
@@ -446,8 +448,8 @@ if __name__ == "__main__":
     parser.add_argument("--render",        action="store_true")
     parser.add_argument("--bc-steps",      type=int, default=3000,
                         help="BC 사전학습용 커리큘럼 데모 수집 스텝 수 (0=비활성화)")
-    parser.add_argument("--bc-s3-steps",   type=int, default=2000,
-                        help="BC 사전학습용 S3 전용 데모 추가 수집 스텝 수")
+    parser.add_argument("--bc-s4-steps",   type=int, default=2000,
+                        help="BC 사전학습용 S4(부분 위협) 전용 데모 추가 수집 스텝 수")
     parser.add_argument("--bc-epochs",     type=int, default=10,
                         help="BC 사전학습 에폭 수")
     args = parser.parse_args()
@@ -474,7 +476,7 @@ if __name__ == "__main__":
                         total_timesteps=args.steps,
                         n_envs=args.n_envs,
                         bc_demo_steps=args.bc_steps,
-                        bc_s3_steps=args.bc_s3_steps,
+                        bc_s4_steps=args.bc_s4_steps,
                         bc_epochs=args.bc_epochs)
 
     elif args.mode == "test":
