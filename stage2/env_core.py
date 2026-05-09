@@ -234,7 +234,9 @@ class FireEvacEnv(gym.Env):
         self._dist_to_exit_A = self._dist_to_exit_B = None
         self.prev_fire_map   = None
         self._occupancy: dict = {}
-        self._prev_f1 = self._prev_f2 = 1.0  # F14/F15 계산용 이전 스텝 위협값
+        self._prev_f1 = self._prev_f2 = 1.0          # F14/F15 계산용 이전 스텝 위협값
+        self._prev_fire_dist_A: float = 20.0          # potential shaping용 이전 스텝 화재-출구 거리
+        self._prev_fire_dist_B: float = 20.0
 
     # ──────────────────────────────────────────
     # reset
@@ -316,6 +318,8 @@ class FireEvacEnv(gym.Env):
         self.step_count    = self.escaped = self.dead = 0
         self.escaped_A     = self.escaped_B = 0
         self._prev_f1 = self._prev_f2 = 1.0
+        self._prev_fire_dist_A = self._min_fire_dist_to_exit(self._dist_to_exit_A)
+        self._prev_fire_dist_B = self._min_fire_dist_to_exit(self._dist_to_exit_B)
 
         self._occupancy = {}
         for p in self.people_data:
@@ -368,18 +372,11 @@ class FireEvacEnv(gym.Env):
 
             r, c    = p["pos"]
             cur_dist = float(self._bfs_dist[r, c])
-
-            if self.fire_map[r, c] > 0:
-                self.dead += 1
-                reward    -= 20.0
-                self._occupancy[p["pos"]] = max(
-                    0, self._occupancy.get(p["pos"], 0) - 1)
-            else:
-                delta    = float(np.clip(p["prev_dist"] - cur_dist, -20.0, 20.0))
-                urgency  = 1.0 + (self.step_count / self.cfg["max_steps"]) * 2.0
-                reward  += delta * 2.0 * urgency
-                p["prev_dist"] = cur_dist
-                next_people.append(p)
+            delta    = float(np.clip(p["prev_dist"] - cur_dist, -20.0, 20.0))
+            urgency  = 1.0 + (self.step_count / self.cfg["max_steps"]) * 2.0
+            reward  += delta * 2.0 * urgency
+            p["prev_dist"] = cur_dist
+            next_people.append(p)
 
         self.people_data = next_people
         self._spread_fire()
@@ -394,6 +391,14 @@ class FireEvacEnv(gym.Env):
                 p["prev_dist"] = float(
                     self._bfs_dist[p["pos"][0], p["pos"][1]])
             self.prev_fire_map = self.fire_map.copy()
+
+        # 잠재 기반 보상 형성 — 화재가 출구에 가까워지면 패널티, 멀어지면 보너스
+        cur_fire_dist_A = self._min_fire_dist_to_exit(self._dist_to_exit_A)
+        cur_fire_dist_B = self._min_fire_dist_to_exit(self._dist_to_exit_B)
+        reward += (cur_fire_dist_A - self._prev_fire_dist_A) * 1.5
+        reward += (cur_fire_dist_B - self._prev_fire_dist_B) * 1.5
+        self._prev_fire_dist_A = cur_fire_dist_A
+        self._prev_fire_dist_B = cur_fire_dist_B
 
         alive = []
         for p in self.people_data:
@@ -517,6 +522,16 @@ class FireEvacEnv(gym.Env):
                 v = self._bfs_dist[nr, nc]
                 if v < best_d: best_d, best = v, d
         return best
+
+    def _min_fire_dist_to_exit(self, dist_map) -> float:
+        """화재 셀 중 출구까지의 BFS 최단거리. 화재 없거나 경로 없으면 20.0 반환."""
+        if dist_map is None:
+            return 20.0
+        fire_cells = np.argwhere(self.fire_map > 0)
+        if len(fire_cells) == 0:
+            return 20.0
+        dists = [dist_map[r, c] for r, c in fire_cells if dist_map[r, c] < 9999]
+        return float(min(dists)) if dists else 20.0
 
     def _passable(self, r, c):
         if not (0 <= r < self.ROWS and 0 <= c < self.COLS): return False
@@ -689,8 +704,21 @@ class FireEvacEnv(gym.Env):
         f5  = self.dead    / self.n_agents
         f6  = self.step_count / self.cfg["max_steps"]
         f9  = float(np.mean([p["panic"] for p in self.people_data])) if n_alive > 0 else 0.0
-        f10 = near_a / self.n_agents  # 출구 A 혼잡 절댓값
-        f11 = near_b / self.n_agents  # 출구 B 혼잡 절댓값
+        # F10/F11: 생존자 전체의 각 출구까지 평균 BFS 거리 (정규화 /50)
+        # F7/F8(출구 근방 혼잡 비율)과 보완 — 사람들이 어느 출구 방향으로 이동 중인가
+        if (n_alive > 0
+                and self._dist_to_exit_A is not None
+                and self._dist_to_exit_B is not None):
+            da = [self._dist_to_exit_A[p["pos"][0], p["pos"][1]]
+                  for p in self.people_data
+                  if self._dist_to_exit_A[p["pos"][0], p["pos"][1]] < 9999]
+            db = [self._dist_to_exit_B[p["pos"][0], p["pos"][1]]
+                  for p in self.people_data
+                  if self._dist_to_exit_B[p["pos"][0], p["pos"][1]] < 9999]
+            f10 = float(np.clip(np.mean(da) / 50.0, 0.0, 1.0)) if da else 0.5
+            f11 = float(np.clip(np.mean(db) / 50.0, 0.0, 1.0)) if db else 0.5
+        else:
+            f10 = f11 = 0.5
 
         # F12/F13: 화재 무게중심 위치 (공간 위치 — 그리드 크기 정규화)
         if len(fire_cells) > 0:

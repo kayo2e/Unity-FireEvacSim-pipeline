@@ -18,6 +18,14 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecNormalize
 from stable_baselines3.common.callbacks import BaseCallback
 
+try:
+    from sb3_contrib import RecurrentPPO
+    _POLICY_NAME = "MlpLstmPolicy"
+except ImportError:
+    RecurrentPPO = None
+    _POLICY_NAME = "MlpPolicy"
+    print("⚠️  sb3_contrib 미설치 — RecurrentPPO 대신 PPO 사용. 설치: pip install sb3-contrib")
+
 from env_core import FireEvacEnv, SCENARIO_CONFIGS, verify_connectivity
 from astar_baseline import rule_based_action
 
@@ -26,7 +34,7 @@ from astar_baseline import rule_based_action
 # 커리큘럼 래퍼
 # ══════════════════════════════════════════════
 class EvacCurriculumWrapper(gym.Wrapper):
-    def __init__(self, n_agents: int = 10, threshold: float = 0.50, window: int = 20):
+    def __init__(self, n_agents: int = 10, threshold: float = 0.85, window: int = 50):
         self.current_scenario = 1
         self.n_agents = n_agents
         env = FireEvacEnv(scenario=1, n_agents=n_agents)
@@ -46,8 +54,9 @@ class EvacCurriculumWrapper(gym.Wrapper):
                     and avg >= self.threshold
                     and self.current_scenario < len(SCENARIO_CONFIGS)):
                 self.current_scenario += 1
+                cfg_n = SCENARIO_CONFIGS[self.current_scenario]["n_agents"]
                 self.env = FireEvacEnv(
-                    scenario=self.current_scenario, n_agents=self.n_agents)
+                    scenario=self.current_scenario, n_agents=cfg_n)
                 self.recent = []
                 print(f"\n[커리큘럼] ★ {self.current_scenario}단계 승급! "
                       f"({self.env.cfg['name']}) | 생존율 {avg:.0%}")
@@ -254,20 +263,23 @@ def train_fire_evac(person_counts=(10, 30, 50),
                                clip_obs=10.0)
         callback = EvacTrainCallback(log_interval=10_000)
 
-        model = PPO(
-            "MlpPolicy",
+        ModelCls    = RecurrentPPO if RecurrentPPO is not None else PPO
+        policy_name = _POLICY_NAME
+        lstm_kwargs = dict(lstm_hidden_size=256) if RecurrentPPO is not None else {}
+        model = ModelCls(
+            policy_name,
             vec_env,
             device          = device,
             verbose         = 0,
-            n_steps         = 1024,
+            n_steps         = 2048,
             batch_size      = 256,
             n_epochs        = 10,
             gamma           = 0.99,
             learning_rate   = 3e-4,
             clip_range      = 0.2,
-            ent_coef        = 0.02,
+            ent_coef        = 0.05,
             max_grad_norm   = 0.5,
-            policy_kwargs   = dict(net_arch=[256, 256]),
+            policy_kwargs   = dict(**lstm_kwargs, net_arch=[256, 256]),
             tensorboard_log = "./fire_evac_log/",
         )
 
@@ -306,14 +318,16 @@ def train_fire_evac(person_counts=(10, 30, 50),
 # ══════════════════════════════════════════════
 def test_fire_evac(n_agents: int = 10, scenario: int = 1,
                    n_episodes: int = 10, save_results: bool = True,
-                   render: bool = False):
+                   render: bool = False, model_n: int = None):
     import os, csv, json
     from datetime import datetime
 
-    model_path   = f"fire_evac_model_{n_agents}ppl"
+    model_n      = model_n if model_n is not None else n_agents
+    model_path   = f"fire_evac_model_{model_n}ppl"
     vecnorm_path = f"{model_path}_vecnorm.pkl"
-    print(f"\n모델 로드: {model_path}.zip")
-    model = PPO.load(model_path)
+    print(f"\n모델 로드: {model_path}.zip  (테스트 인원: {n_agents}명)")
+    ModelCls = RecurrentPPO if RecurrentPPO is not None else PPO
+    model = ModelCls.load(model_path)
 
     render_mode = "human" if render else None
     env     = FireEvacEnv(scenario=scenario, n_agents=n_agents,
@@ -327,7 +341,9 @@ def test_fire_evac(n_agents: int = 10, scenario: int = 1,
 
     records = []
     for ep in range(n_episodes):
-        obs      = vec_env.reset()
+        obs           = vec_env.reset()
+        lstm_states   = None
+        ep_starts     = np.ones((vec_env.num_envs,), dtype=bool)
         total_r  = 0.0
         step_cnt = 0
         max_fire = 0
@@ -335,7 +351,9 @@ def test_fire_evac(n_agents: int = 10, scenario: int = 1,
               f"{env.cfg['name']} | {n_agents}명", end="", flush=True)
 
         for _ in range(env.cfg["max_steps"]):
-            action, _ = model.predict(obs, deterministic=True)
+            action, lstm_states = model.predict(
+                obs, state=lstm_states, episode_start=ep_starts, deterministic=True)
+            ep_starts = np.zeros((vec_env.num_envs,), dtype=bool)
             obs, r, done, infos = vec_env.step(action)
             info      = infos[0]
             total_r  += float(r[0])
@@ -446,6 +464,9 @@ if __name__ == "__main__":
                         help="시나리오 1~4 전부 테스트")
     parser.add_argument("--no-save",       action="store_true")
     parser.add_argument("--render",        action="store_true")
+    parser.add_argument("--model-n",        type=int, default=None,
+                        help="로드할 모델 인원수 (미지정 시 --test-n 사용). "
+                             "커리큘럼 학습 후 단일 모델로 모든 시나리오 테스트 시 지정.")
     parser.add_argument("--bc-steps",      type=int, default=3000,
                         help="BC 사전학습용 커리큘럼 데모 수집 스텝 수 (0=비활성화)")
     parser.add_argument("--bc-s4-steps",   type=int, default=2000,
@@ -483,11 +504,14 @@ if __name__ == "__main__":
         scenarios = [1, 2, 3, 4] if args.all_scenarios else [args.test_scenario]
         all_summaries = {}
         for sc in scenarios:
-            _, summary = test_fire_evac(n_agents=args.test_n,
+            n = (SCENARIO_CONFIGS[sc]["n_agents"]
+                 if args.all_scenarios else args.test_n)
+            _, summary = test_fire_evac(n_agents=n,
                                         scenario=sc,
                                         n_episodes=args.test_episodes,
                                         save_results=not args.no_save,
-                                        render=args.render)
+                                        render=args.render,
+                                        model_n=args.model_n)
             all_summaries[sc] = summary
 
         if args.all_scenarios:
