@@ -1,0 +1,70 @@
+{
+  "model": "fire_evac_model_10ppl",
+  "scenario": 4,
+  "scenario_name": "부분 위협",
+  "n_agents": 10,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.8067,
+    "std": 0.2294,
+    "min": 0.3,
+    "max": 1.0,
+    "median": 0.9
+  },
+  "total_reward": {
+    "mean": 382.139,
+    "std": 172.281,
+    "min": -29.14,
+    "max": 601.3,
+    "median": 431.275
+  },
+  "steps_taken": {
+    "mean": 57.2,
+    "std": 18.9779,
+    "min": 25.0,
+    "max": 95.0,
+    "median": 54.0
+  },
+  "escaped": {
+    "mean": 8.0667,
+    "std": 2.294,
+    "min": 3.0,
+    "max": 10.0,
+    "median": 9.0
+  },
+  "escaped_A": {
+    "mean": 3.2333,
+    "std": 2.801,
+    "min": 0.0,
+    "max": 9.0,
+    "median": 3.0
+  },
+  "escaped_B": {
+    "mean": 4.8333,
+    "std": 2.9786,
+    "min": 0.0,
+    "max": 10.0,
+    "median": 5.0
+  },
+  "dead": {
+    "mean": 1.9333,
+    "std": 2.294,
+    "min": 0.0,
+    "max": 7.0,
+    "median": 1.0
+  },
+  "mean_panic": {
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 146.5333,
+    "std": 105.1848,
+    "min": 0.0,
+    "max": 403.0,
+    "median": 159.5
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "model": "astar_rule_baseline",
+  "scenario": 3,
+  "scenario_name": "출구 혼잡",
+  "n_agents": 20,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 1.0,
+    "std": 0.0,
+    "min": 1.0,
+    "max": 1.0,
+    "median": 1.0
+  },
+  "total_reward": {
+    "mean": 921.1683,
+    "std": 54.9142,
+    "min": 815.49,
+    "max": 1035.28,
+    "median": 911.67
+  },
+  "steps_taken": {
+    "mean": 51.8667,
+    "std": 8.5858,
+    "min": 38.0,
+    "max": 69.0,
+    "median": 51.0
+  },
+  "escaped": {
+    "mean": 20.0,
+    "std": 0.0,
+    "min": 20.0,
+    "max": 20.0,
+    "median": 20.0
+  },
+  "escaped_A": {
+    "mean": 9.0333,
+    "std": 2.1677,
+    "min": 3.0,
+    "max": 13.0,
+    "median": 9.0
+  },
+  "escaped_B": {
+    "mean": 10.9667,
+    "std": 2.1677,
+    "min": 7.0,
+    "max": 17.0,
+    "median": 11.0
+  },
+  "dead": {
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 32.4,
+    "std": 11.8028,
+    "min": 8.0,
+    "max": 55.0,
+    "median": 33.5
+  }
+}
