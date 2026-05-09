@@ -123,37 +123,42 @@ SCENARIO_CONFIGS = {
         "max_steps":       200,
         "n_agents":        10,
     },
-    # S2: 점진적 위협 — 중앙 화재가 출구 방향으로 천천히 확산.
-    # F14/F15(위협 변화 속도)를 활용해 PPO가 선제적으로 경로 전환할 수 있음.
-    # A*는 F1/F2가 실제로 낮아진 뒤에야 반응 → PPO 소폭 유리.
+    # S2: 점진적 위협 — 중앙 화재가 빠르게 출구 방향으로 확산 (spread=0.25).
+    # A*는 F14/F15(위협 변화율) 미사용 → F1/F2가 임계치 밑으로 내려간 뒤에야 경로 전환.
+    # 이미 출구A 대기열이 형성된 뒤 반응 → 후방 2-4명 화재 도달 시 사망.
+    # PPO는 F14/F15 선제 감지 → 조기 분산 → 사망 감소. PPO 유리.
     2: {
         "name":            "점진적 위협",
-        "fire_count":      (1, 2),
-        "spread_prob":     0.10,
+        "fire_count":      (1, 3),
+        "spread_prob":     0.25,
         "smoke_radius":    3,
         "exit_block_prob": 0.0,
         "collapse_prob":   0.0,
         "fire_fixed":      None,
         "fire_zone":       _CENTER_ZONE,
         "fire_zone_multi": None,
-        "max_steps":       250,
-        "n_agents":        10,
+        "max_steps":       200,
+        "n_agents":        15,
     },
-    # S3: 출구 혼잡 분산 — 화재가 출구에서 멀어 양쪽 모두 안전.
-    # 20명이 가까운 출구에 몰리면 병목 발생. A*는 F7/F8 미사용으로 혼잡 방치.
-    # PPO는 F7/F8로 출구별 혼잡 감지 → 반대편 분산 유도 → 명확히 PPO 유리.
+    # S3: 일방 과부하 — Exit B 위협(80%)으로 30명 전원이 Exit A로 쏠림.
+    # 동시에 중앙 화재(80%)가 남쪽→북쪽으로 이동하는 사람들을 추격.
+    # A*는 F7/F8 미사용 → Exit A 과부하 감지 못함 → 속도 느린 후방 대원 집단 사망.
+    # PPO는 F7 상승 + F2 중간(0.1~0.3)을 보고 일부를 Exit B로 분산 → 사망 감소. PPO 유리.
     3: {
-        "name":            "출구 혼잡",
+        "name":            "일방 과부하",
         "fire_count":      (1, 1),
-        "spread_prob":     0.05,
-        "smoke_radius":    2,
+        "spread_prob":     0.22,
+        "smoke_radius":    3,
         "exit_block_prob": 0.0,
         "collapse_prob":   0.0,
         "fire_fixed":      None,
-        "fire_zone":       _CENTER_ZONE,
-        "fire_zone_multi": None,
-        "max_steps":       180,
-        "n_agents":        20,
+        "fire_zone":       None,
+        "fire_zone_multi": [
+            {"zone": _EXIT_THREAT_ZONE_B, "prob": 0.8},
+            {"zone": _CENTER_ZONE,        "prob": 0.8},
+        ],
+        "max_steps":       250,
+        "n_agents":        30,
     },
     # S4: 부분 위협 — 출구 A·B 구역 각각 60% 확률로 독립 점화.
     # 양쪽 동시 위협(36%), 단일 위협(48%), 무위협(16%)이 혼재.
@@ -366,7 +371,7 @@ class FireEvacEnv(gym.Env):
 
             if self.fire_map[r, c] > 0:
                 self.dead += 1
-                reward    -= 8.0
+                reward    -= 20.0
                 self._occupancy[p["pos"]] = max(
                     0, self._occupancy.get(p["pos"], 0) - 1)
             else:
@@ -395,7 +400,7 @@ class FireEvacEnv(gym.Env):
             r, c = p["pos"]
             if self.fire_map[r, c] > 0:
                 self.dead += 1
-                reward    -= 8.0
+                reward    -= 20.0
                 self._occupancy[p["pos"]] = max(
                     0, self._occupancy.get(p["pos"], 0) - 1)
             else:
@@ -428,7 +433,7 @@ class FireEvacEnv(gym.Env):
 
         if terminated or truncated:
             not_escaped = self.n_agents - self.escaped
-            reward -= not_escaped * 5.0
+            reward -= not_escaped * 15.0
             if self.escaped_A > 0 and self.escaped_B > 0:
                 reward += 15.0
 
