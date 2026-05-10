@@ -1,0 +1,70 @@
+{
+  "model": "fire_evac_model_10ppl",
+  "scenario": 3,
+  "scenario_name": "일방 과부하",
+  "n_agents": 30,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.7267,
+    "std": 0.1685,
+    "min": 0.3,
+    "max": 0.9667,
+    "median": 0.75
+  },
+  "total_reward": {
+    "mean": 939.9643,
+    "std": 365.12,
+    "min": 23.47,
+    "max": 1674.07,
+    "median": 1026.67
+  },
+  "steps_taken": {
+    "mean": 69.2667,
+    "std": 14.1937,
+    "min": 52.0,
+    "max": 115.0,
+    "median": 66.5
+  },
+  "escaped": {
+    "mean": 21.8,
+    "std": 5.0557,
+    "min": 9.0,
+    "max": 29.0,
+    "median": 22.5
+  },
+  "escaped_A": {
+    "mean": 17.4667,
+    "std": 4.6313,
+    "min": 9.0,
+    "max": 26.0,
+    "median": 18.0
+  },
+  "escaped_B": {
+    "mean": 4.3333,
+    "std": 4.8534,
+    "min": 0.0,
+    "max": 15.0,
+    "median": 2.0
+  },
+  "dead": {
+    "mean": 8.2,
+    "std": 5.0557,
+    "min": 1.0,
+    "max": 21.0,
+    "median": 7.5
+  },
+  "mean_panic": {
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 438.9,
+    "std": 95.4161,
+    "min": 239.0,
+    "max": 581.0,
+    "median": 445.5
+  }
+}
