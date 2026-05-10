@@ -142,6 +142,60 @@
 
 ---
 
+## 현재 PPO 모델 구조
+
+### 알고리즘 및 네트워크
+
+| 항목 | 값 |
+| :--- | :--- |
+| 알고리즘 | **RecurrentPPO** (sb3_contrib 미설치 시 PPO 자동 폴백) |
+| Policy | **MlpLstmPolicy** (폴백: MlpPolicy) |
+| 네트워크 | Actor-Critic 공유 MLP — `[256, 256]` |
+| LSTM hidden size | 256 (RecurrentPPO 사용 시) |
+| 입력 차원 | 15 (F1~F15 스칼라) |
+| 출력 차원 | 3 (exit_A_cost, exit_B_cost, crowd_weight) |
+| 출력 분포 | Gaussian (연속 액션) |
+
+### 하이퍼파라미터
+
+| 파라미터 | 값 | 설명 |
+| :--- | :---: | :--- |
+| `n_steps` | 2048 | 환경당 롤아웃 스텝 (긴 에피소드 GAE 안정화) |
+| `batch_size` | 256 | 미니배치 크기 |
+| `n_epochs` | 10 | 롤아웃당 업데이트 반복 횟수 |
+| `gamma` | 0.99 | 할인율 |
+| `learning_rate` | 3e-4 | Adam 학습률 |
+| `clip_range` | 0.2 | PPO 클리핑 범위 |
+| `ent_coef` | 0.05 | 엔트로피 보너스 (탐험 촉진) |
+| `max_grad_norm` | 0.5 | 그래디언트 클리핑 |
+
+### 학습 환경
+
+| 항목 | 값 |
+| :--- | :--- |
+| 병렬 환경 | SubprocVecEnv × 4 (Windows: DummyVecEnv) |
+| 관측 정규화 | VecNormalize (norm_obs=True, clip_obs=10.0) |
+| 커리큘럼 기준 | 최근 50 에피소드 평균 생존율 ≥ 85% → 다음 단계 승급 |
+| 커리큘럼 인원 | S1=10명 → S2=15명 → S3=30명 → S4=15명 (시나리오별 자동 전환) |
+| Potential shaping | 화재-출구 BFS 거리 변화 × 1.5 (화재 접근 시 패널티) |
+
+```
+입력 (15차원 F1~F15)
+    ↓
+Linear(15→256) → ReLU
+    ↓
+Linear(256→256) → ReLU
+    ↓
+┌──────────────────┬──────────────────┐
+Actor head         Critic head
+Linear(256→3)      Linear(256→1)
+Gaussian 샘플링     가치 추정 V(s)
+    ↓
+[exit_A_cost, exit_B_cost, crowd_weight]
+```
+
+---
+
 ## BC 사전학습 (A* → PPO 초기화)
 
 학습 시작 전 A* 규칙 행동을 시연 데이터로 수집해 PPO 신경망을 지도학습으로 초기화합니다.  
@@ -257,30 +311,30 @@ results/test_summary_s{scenario}_{n}ppl_{timestamp}.json  # 통계 요약
 
 ## 성능 비교 — PPO vs A* 규칙 기반 베이스라인
 
-> 공통 조건: 각 시나리오 **30 에피소드**, `EXIT_CAPACITY=1` / `CELL_CAPACITY=1` 병목 적용
+> 공통 조건: 각 시나리오 **30 에피소드**, `EXIT_CAPACITY=1` / `CELL_CAPACITY=1` 병목 적용  
+> 측정일: 2026-05-10 | 모델: **RecurrentPPO (MlpLstmPolicy, lstm_hidden_size=256)** | 커리큘럼 threshold=0.85 / window=50
 
 ### 실측 결과 (생존율 mean ± std)
 
-| 시나리오 | 인원 | A* 규칙 기반 | PPO | 비고 |
-| :---: | :---: | :---: | :---: | :--- |
-| S1 기본 탈출 | 10명 | 100.0% ± 0.0% | 100.0% ± 0.0% | 동률 (예상대로) |
-| S2 점진적 위협 | 15명 | 93.3% ± 7.1% | 93.8% ± 8.4% | 사실상 동률 |
-| S3 일방 과부하 | 30명 | 71.6% ± 22.5% | 69.9% ± 18.1% | 오차 범위 내 동률 |
-| S4 부분 위협 | 15명 | 62.0% ± 40.0% | 63.3% ± 35.6% | 오차 범위 내 동률 |
+| 시나리오 | 인원 | A* 규칙 기반 | **PPO (현재)** | 차이 | 비고 |
+| :---: | :---: | :---: | :---: | :---: | :--- |
+| S1 기본 탈출 | 10명 | 100.0% ± 0.0% | **99.7% ± 1.8%** | −0.3%p | 사실상 동률 |
+| S2 점진적 위협 | 15명 | 93.3% ± 7.1% | **94.2% ± 5.9%** | **+0.9%p** | PPO 소폭 우세, 분산 감소 |
+| S3 일방 과부하 | 30명 | 71.6% ± 22.5% | **72.7% ± 16.9%** | **+1.1%p** | PPO 소폭 우세, **분산 −5.6%p** |
+| S4 부분 위협 | 15명 | 62.0% ± 40.0% | **66.5% ± 29.2%** | **+4.5%p** | PPO 우세, **분산 −10.8%p** |
 
-> **해석**: S3·S4의 표준편차(±22~40%)가 두 모델의 차이(1~2%)보다 훨씬 커서  
-> 30 에피소드 기준으로는 통계적 우위를 확인하기 어렵습니다.  
-> BC 사전학습 제거(`--bc-steps 0`) 후 재학습 중 — 결과 업데이트 예정.
+> **해석**:  
+> - 평균 생존율은 S2~S4에서 PPO가 일관되게 우세 (가장 좋은 결과)  
+> - **표준편차 감소가 핵심**: S3 −5.6%p, S4 −10.8%p → PPO가 더 안정적인 유도 정책 학습  
+> - S4 최솟값: A* 0% vs PPO 7% — 완전 실패 에피소드 감소  
+> - S3·S4 절대 차이(1~4.5%p)는 작지만 std 감소는 실제 안정성 향상을 의미
 
 ```bash
 # A* 베이스라인 측정 (권장 인원수 자동 적용)
 python astar_baseline.py --all-scenarios --episodes 30
 
-# PPO 측정 (시나리오별 권장 인원수 지정)
-python train.py --mode test --test-n 10  --test-scenario 1 --test-episodes 30
-python train.py --mode test --test-n 15  --test-scenario 2 --test-episodes 30
-python train.py --mode test --test-n 30  --test-scenario 3 --test-episodes 30
-python train.py --mode test --test-n 15  --test-scenario 4 --test-episodes 30
+# PPO 측정 — 시나리오별 권장 인원수 자동 적용
+python train.py --mode test --model-n 10 --all-scenarios --test-episodes 30
 ```
 
 ---

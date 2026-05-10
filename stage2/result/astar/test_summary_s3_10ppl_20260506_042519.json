@@ -1,0 +1,63 @@
+{
+  "model": "astar_rule_baseline",
+  "scenario": 3,
+  "scenario_name": "출구 위협",
+  "n_agents": 10,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.9633,
+    "std": 0.0605,
+    "min": 0.8,
+    "max": 1.0,
+    "median": 1.0
+  },
+  "total_reward": {
+    "mean": 559.3093,
+    "std": 83.3786,
+    "min": 389.85,
+    "max": 714.0,
+    "median": 548.47
+  },
+  "steps_taken": {
+    "mean": 60.9,
+    "std": 14.3883,
+    "min": 41.0,
+    "max": 103.0,
+    "median": 58.5
+  },
+  "escaped": {
+    "mean": 9.6333,
+    "std": 0.6046,
+    "min": 8.0,
+    "max": 10.0,
+    "median": 10.0
+  },
+  "escaped_A": {
+    "mean": 5.3,
+    "std": 4.6701,
+    "min": 0.0,
+    "max": 10.0,
+    "median": 8.0
+  },
+  "escaped_B": {
+    "mean": 4.3333,
+    "std": 4.5923,
+    "min": 0.0,
+    "max": 10.0,
+    "median": 1.0
+  },
+  "dead": {
+    "mean": 0.3667,
+    "std": 0.6046,
+    "min": 0.0,
+    "max": 2.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 300.1,
+    "std": 87.847,
+    "min": 152.0,
+    "max": 561.0,
+    "median": 292.0
+  }
+}

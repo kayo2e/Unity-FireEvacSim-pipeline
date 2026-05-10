@@ -1,0 +1,63 @@
+{
+  "model": "astar_rule_baseline",
+  "scenario": 2,
+  "scenario_name": "점진적 위협",
+  "n_agents": 15,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.9333,
+    "std": 0.071,
+    "min": 0.7333,
+    "max": 1.0,
+    "median": 0.9333
+  },
+  "total_reward": {
+    "mean": 604.453,
+    "std": 79.3394,
+    "min": 400.15,
+    "max": 778.05,
+    "median": 600.065
+  },
+  "steps_taken": {
+    "mean": 45.6667,
+    "std": 8.4393,
+    "min": 29.0,
+    "max": 60.0,
+    "median": 46.0
+  },
+  "escaped": {
+    "mean": 14.0,
+    "std": 1.0646,
+    "min": 11.0,
+    "max": 15.0,
+    "median": 14.0
+  },
+  "escaped_A": {
+    "mean": 6.5667,
+    "std": 2.376,
+    "min": 2.0,
+    "max": 12.0,
+    "median": 7.0
+  },
+  "escaped_B": {
+    "mean": 7.4333,
+    "std": 2.2313,
+    "min": 3.0,
+    "max": 13.0,
+    "median": 7.0
+  },
+  "dead": {
+    "mean": 1.0,
+    "std": 1.0646,
+    "min": 0.0,
+    "max": 4.0,
+    "median": 1.0
+  },
+  "max_fire_cells": {
+    "mean": 290.0667,
+    "std": 99.1356,
+    "min": 151.0,
+    "max": 504.0,
+    "median": 251.0
+  }
+}

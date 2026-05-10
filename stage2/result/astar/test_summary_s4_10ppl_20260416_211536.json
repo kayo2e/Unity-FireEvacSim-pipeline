@@ -1,0 +1,49 @@
+{
+  "model": "astar_rule_baseline",
+  "scenario": 4,
+  "scenario_name": "폭발 붕괴",
+  "n_agents": 10,
+  "n_episodes": 1000,
+  "survival_rate": {
+    "mean": 0.3226,
+    "std": 0.2121,
+    "min": 0.0,
+    "max": 0.9,
+    "median": 0.3
+  },
+  "total_reward": {
+    "mean": 59.0731,
+    "std": 97.3027,
+    "min": -114.0,
+    "max": 432.09,
+    "median": 47.85
+  },
+  "steps_taken": {
+    "mean": 592.153,
+    "std": 65.8971,
+    "min": 17.0,
+    "max": 600.0,
+    "median": 600.0
+  },
+  "escaped": {
+    "mean": 3.226,
+    "std": 2.1206,
+    "min": 0.0,
+    "max": 9.0,
+    "median": 3.0
+  },
+  "dead": {
+    "mean": 2.712,
+    "std": 1.8668,
+    "min": 0.0,
+    "max": 9.0,
+    "median": 2.0
+  },
+  "max_fire_cells": {
+    "mean": 108.871,
+    "std": 41.2428,
+    "min": 5.0,
+    "max": 199.0,
+    "median": 108.0
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "model": "fire_evac_model_10ppl",
+  "scenario": 1,
+  "scenario_name": "기본 탈출",
+  "n_agents": 10,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.9967,
+    "std": 0.018,
+    "min": 0.9,
+    "max": 1.0,
+    "median": 1.0
+  },
+  "total_reward": {
+    "mean": 458.637,
+    "std": 47.0396,
+    "min": 340.44,
+    "max": 540.9,
+    "median": 472.39
+  },
+  "steps_taken": {
+    "mean": 37.6333,
+    "std": 8.2965,
+    "min": 25.0,
+    "max": 59.0,
+    "median": 35.5
+  },
+  "escaped": {
+    "mean": 9.9667,
+    "std": 0.1795,
+    "min": 9.0,
+    "max": 10.0,
+    "median": 10.0
+  },
+  "escaped_A": {
+    "mean": 4.9,
+    "std": 1.4224,
+    "min": 2.0,
+    "max": 8.0,
+    "median": 5.0
+  },
+  "escaped_B": {
+    "mean": 5.0667,
+    "std": 1.4126,
+    "min": 2.0,
+    "max": 8.0,
+    "median": 5.0
+  },
+  "dead": {
+    "mean": 0.0333,
+    "std": 0.1795,
+    "min": 0.0,
+    "max": 1.0,
+    "median": 0.0
+  },
+  "mean_panic": {
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 4.9,
+    "std": 2.0388,
+    "min": 1.0,
+    "max": 10.0,
+    "median": 4.0
+  }
+}
