@@ -3,9 +3,12 @@ env_joint.py — JointPPO용 환경 래퍼 (K_MAX 고정 슬롯 방식)
 =============================================================
 핵심 아이디어:
   - 전체 n_lights(611) 중 경로 셀만 제어 (LLM next-token 영감)
-  - action_space = MultiDiscrete([4] * K_MAX)  ← K_MAX=64 고정
-  - 슬롯 i < 실제경로셀 수: 활성 (4방향), 슬롯 i ≥: 비활성 (N 더미)
-  - 비경로 셀: A* 기본 방향 유지 (env_core._compute_dirs_for_strategy 호출)
+  - action_space = MultiDiscrete([2] * K_MAX)  ← K_MAX=64 고정
+      0 = Exit A 방향 (A-BFS 최단 방향)
+      1 = Exit B 방향 (B-BFS 최단 방향)
+  - BFS 거리 맵이 방향 일관성을 자동 보장 (루프/모순 불가)
+  - 슬롯 i ≥ 실제경로셀 수: 비활성 (마스크로 action 0만 허용)
+  - 비경로 셀: A* 기본 방향 유지
 
 기존 env_core.py 수정 없음 — step() 내 monkey-patch로 light_dirs 주입.
 
@@ -37,9 +40,9 @@ class JointEvacEnv(gym.Env):
     """
     경로 셀 K_MAX개를 직접 제어하는 JointPPO 전용 환경.
 
-    Action  : MultiDiscrete([4] * K_MAX)  — 0=N,1=S,2=E,3=W
+    Action  : MultiDiscrete([2] * K_MAX)  — 0=Exit A 방향, 1=Exit B 방향
     Obs     : (K_MAX * CELL_FEAT + GLOBAL_FEAT,) float32
-    Masks   : 활성 슬롯=[T,T,T,T], 비활성=[T,F,F,F]
+    Masks   : 활성 슬롯=[T,T], 비활성=[T,F]
     """
     metadata = {"render_modes": ["human"]}
 
@@ -56,7 +59,7 @@ class JointEvacEnv(gym.Env):
         self.n_agents    = n_agents
         self.k_max       = k_max
 
-        self.action_space = spaces.MultiDiscrete([4] * k_max)
+        self.action_space = spaces.MultiDiscrete([2] * k_max)
         obs_dim = k_max * CELL_FEAT + GLOBAL_FEAT
         self.observation_space = spaces.Box(
             low=0.0, high=1.0, shape=(obs_dim,), dtype=np.float32)
@@ -76,41 +79,70 @@ class JointEvacEnv(gym.Env):
     # ──────────────────────────────────────────
     def step(self, action: np.ndarray):
         slots = self._last_path_slots
-        n_active = len(slots)
+        base  = self._base
 
-        # 활성 슬롯 행동 → light_dirs 패치
-        base_dirs = self._base._compute_dirs_for_strategy(10.0, 10.0, 1.0)
-        for i, (cell_idx, _) in enumerate(slots):
-            if i < len(action):
-                base_dirs[cell_idx] = int(action[i])
+        # A* 기본 방향을 베이스로 시작
+        base_dirs = base._compute_dirs_for_strategy(10.0, 10.0, 1.0)
+
+        for i, (cell_idx, (r, c)) in enumerate(slots):
+            if i >= len(action):
+                break
+            # action[i]==0 → Exit A BFS 방향, action[i]==1 → Exit B BFS 방향
+            dist_a = base._dist_to_exit_A
+            dist_b = base._dist_to_exit_B
+            if action[i] == 0:
+                primary, fallback = dist_a, dist_b
+            else:
+                primary, fallback = dist_b, dist_a
+
+            # 해당 출구가 막혀 있으면 반대쪽으로 fallback
+            if primary is not None and not np.isinf(primary[r, c]):
+                base_dirs[cell_idx] = self._dir_toward(r, c, primary)
+            elif fallback is not None:
+                base_dirs[cell_idx] = self._dir_toward(r, c, fallback)
 
         _dirs_snap = base_dirs.copy()
         def _fixed(*a, **kw): return _dirs_snap
 
-        orig = self._base._compute_dirs_for_strategy
-        self._base._compute_dirs_for_strategy = _fixed
+        orig = base._compute_dirs_for_strategy
+        base._compute_dirs_for_strategy = _fixed
 
         dummy = np.array([10.0, 10.0, 1.0], dtype=np.float32)
-        global_obs, reward, terminated, truncated, info = self._base.step(dummy)
+        global_obs, reward, terminated, truncated, info = base.step(dummy)
 
-        self._base._compute_dirs_for_strategy = orig
+        base._compute_dirs_for_strategy = orig
         self._last_global_obs = global_obs
         self._last_path_slots = self._compute_path_slots()
         return self._build_obs(self._last_path_slots), reward, terminated, truncated, info
 
     # ──────────────────────────────────────────
+    def _dir_toward(self, r: int, c: int, dist_map: np.ndarray) -> int:
+        """(r,c)에서 dist_map 최솟값 방향 반환 (0=N,1=S,2=E,3=W)."""
+        base = self._base
+        best_d   = float(dist_map[r, c])
+        best_dir = 0
+        for dir_idx, (dr, dc) in enumerate([(-1, 0), (1, 0), (0, 1), (0, -1)]):
+            nr, nc = r + dr, c + dc
+            if 0 <= nr < base.ROWS and 0 <= nc < base.COLS:
+                d = float(dist_map[nr, nc])
+                if d < best_d:
+                    best_d   = d
+                    best_dir = dir_idx
+        return best_dir
+
+    # ──────────────────────────────────────────
     def action_masks(self) -> np.ndarray:
         """
-        활성 슬롯 (실제 경로 셀): 4방향 모두 True.
-        비활성 슬롯 (패딩): N(0)만 True.
+        활성 슬롯 (실제 경로 셀): [A방향, B방향] 모두 True.
+        비활성 슬롯 (패딩): A방향(0)만 True.
         """
         n_active = len(self._last_path_slots)
-        mask = np.zeros(self.k_max * 4, dtype=bool)
+        mask = np.zeros(self.k_max * 2, dtype=bool)
         for i in range(self.k_max):
             if i < n_active:
-                mask[i * 4: i * 4 + 4] = True
+                mask[i * 2: i * 2 + 2] = True
             else:
-                mask[i * 4] = True
+                mask[i * 2] = True
         return mask
 
     # ──────────────────────────────────────────

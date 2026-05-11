@@ -105,14 +105,18 @@ class JointCurriculumWrapper(gym.Wrapper):
 # 학습 콜백
 # ══════════════════════════════════════════════
 class JointCallback(BaseCallback):
-    def __init__(self, log_interval: int = 10_000):
+    def __init__(self, log_interval: int = 10_000, save_dir: str = "."):
         super().__init__()
         self.log_interval  = log_interval
-        self.ep_survival: list = []
-        self.ep_rewards:  list = []
-        self._cum_rewards = None
-        self._ep_count    = 0
+        self.save_dir      = save_dir
+        self.ep_survival:  list = []
+        self.ep_rewards:   list = []
+        self._cum_rewards  = None
+        self._ep_count     = 0
         self._last_summary_step = 0
+        self.policy_losses:  list = []
+        self.value_losses:   list = []
+        self.entropy_losses: list = []
 
     def _on_step(self):
         rewards = self.locals["rewards"]
@@ -158,12 +162,84 @@ class JointCallback(BaseCallback):
                   f"생존율(100ep) {avg_s:>5.1%} | 보상 {avg_r:>+7.1f}")
         return True
 
+    def _on_rollout_end(self):
+        log = self.model.logger.name_to_value
+        if "train/policy_gradient_loss" in log:
+            self.policy_losses.append(log["train/policy_gradient_loss"])
+        if "train/value_loss" in log:
+            self.value_losses.append(log["train/value_loss"])
+        if "train/entropy_loss" in log:
+            self.entropy_losses.append(log["train/entropy_loss"])
+
+    def _on_training_end(self):
+        print()
+        self._save_graphs()
+
+    def _save_graphs(self):
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+        except ImportError:
+            print("  [경고] matplotlib 미설치 — 그래프 저장 생략")
+            return
+
+        os.makedirs(self.save_dir, exist_ok=True)
+        ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(self.save_dir, f"train_curves_{ts}.png")
+
+        fig, axes = plt.subplots(2, 2, figsize=(14, 8))
+        fig.suptitle("JointPPO Training Curves", fontsize=13)
+
+        def rolling(arr, w=20):
+            a = np.array(arr, dtype=float)
+            if len(a) < w:
+                return a
+            return np.convolve(a, np.ones(w) / w, mode="valid")
+
+        ax = axes[0, 0]
+        if self.ep_survival:
+            ax.plot(self.ep_survival, alpha=0.3, color="steelblue", label="per-ep")
+            r = rolling(self.ep_survival)
+            x = np.arange(len(self.ep_survival) - len(r), len(self.ep_survival))
+            ax.plot(x, r, color="steelblue", lw=2, label="rolling-20")
+        ax.set_title("Survival Rate"); ax.set_xlabel("Episode")
+        ax.set_ylabel("Rate"); ax.set_ylim(0, 1); ax.legend(fontsize=8)
+
+        ax = axes[0, 1]
+        if self.ep_rewards:
+            ax.plot(self.ep_rewards, alpha=0.3, color="darkorange", label="per-ep")
+            r = rolling(self.ep_rewards)
+            x = np.arange(len(self.ep_rewards) - len(r), len(self.ep_rewards))
+            ax.plot(x, r, color="darkorange", lw=2, label="rolling-20")
+        ax.set_title("Episode Reward"); ax.set_xlabel("Episode")
+        ax.set_ylabel("Reward"); ax.legend(fontsize=8)
+
+        ax = axes[1, 0]
+        if self.policy_losses:
+            ax.plot(self.policy_losses, color="crimson",  lw=1.5, label="policy loss")
+        if self.value_losses:
+            ax.plot(self.value_losses,  color="navy",     lw=1.5, label="value loss")
+        ax.set_title("Policy & Value Loss"); ax.set_xlabel("Update")
+        ax.set_ylabel("Loss"); ax.legend(fontsize=8)
+
+        ax = axes[1, 1]
+        if self.entropy_losses:
+            ax.plot(self.entropy_losses, color="seagreen", lw=1.5, label="entropy loss")
+        ax.set_title("Entropy Loss"); ax.set_xlabel("Update")
+        ax.set_ylabel("Loss"); ax.legend(fontsize=8)
+
+        plt.tight_layout()
+        plt.savefig(path, dpi=120)
+        plt.close(fig)
+        print(f"  그래프 저장: {path}")
+
 
 # ══════════════════════════════════════════════
 # 학습
 # ══════════════════════════════════════════════
 def train(person_counts=(10,), total_timesteps: int = 300_000,
-          n_envs: int = 4, d_model: int = 64,
+          n_envs: int = 32, d_model: int = 64,
           nhead: int = 4, num_layers: int = 2,
           k_max: int = K_MAX):
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -217,7 +293,7 @@ def train(person_counts=(10,), total_timesteps: int = 300_000,
 
         model.learn(
             total_timesteps = total_timesteps,
-            callback        = JointCallback(),
+            callback        = JointCallback(save_dir=RESULT_DIR),
             tb_log_name     = f"JointPPO_{n}ppl",
         )
 
