@@ -1,0 +1,63 @@
+{
+  "model": "astar_rule_baseline",
+  "scenario": 4,
+  "scenario_name": "부분 위협",
+  "n_agents": 15,
+  "n_episodes": 100,
+  "survival_rate": {
+    "mean": 0.77,
+    "std": 0.3467,
+    "min": 0.0,
+    "max": 1.0,
+    "median": 1.0
+  },
+  "total_reward": {
+    "mean": 485.6908,
+    "std": 382.441,
+    "min": -301.59,
+    "max": 935.2,
+    "median": 676.795
+  },
+  "steps_taken": {
+    "mean": 62.62,
+    "std": 15.9102,
+    "min": 33.0,
+    "max": 108.0,
+    "median": 63.5
+  },
+  "escaped": {
+    "mean": 11.55,
+    "std": 5.2007,
+    "min": 0.0,
+    "max": 15.0,
+    "median": 15.0
+  },
+  "escaped_A": {
+    "mean": 5.9,
+    "std": 5.7871,
+    "min": 0.0,
+    "max": 15.0,
+    "median": 4.0
+  },
+  "escaped_B": {
+    "mean": 5.65,
+    "std": 5.7085,
+    "min": 0.0,
+    "max": 15.0,
+    "median": 3.0
+  },
+  "dead": {
+    "mean": 3.45,
+    "std": 5.2007,
+    "min": 0.0,
+    "max": 15.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 182.02,
+    "std": 124.031,
+    "min": 0.0,
+    "max": 548.0,
+    "median": 196.0
+  }
+}
