@@ -5,13 +5,13 @@ obs (B, K_MAX*8 + 15)  ← env_joint.py의 경로 셀 K_MAX개 + 글로벌
   ↓
 global token (CLS) + K_MAX cell tokens → TransformerEncoder
   d_model=64, nhead=4, layers=2, seq=K_MAX+1=65
-  → 1회 추론 ~3ms/CPU (전체 611 토큰 대비 100× 빠름)
   ↓
 latent_pi = cells[:, 1:, :].flatten (B, K_MAX*d)
 latent_vf = cells[:, 0, :]          (B, d)        CLS 토큰
   ↓
-PerCellHead: Linear(d, 4) 공유 → (B, K_MAX*4)
-MultiCategorical([4]*K_MAX): K_MAX=64개 분포만 처리 (611→64 10×↓)
+PerCellHead: Linear(d, 2) 공유 → (B, K_MAX*2)
+  0 = Exit A 방향, 1 = Exit B 방향
+MultiCategorical([2]*K_MAX): BFS가 방향 일관성 보장
 """
 
 import sys
@@ -159,4 +159,4 @@ class PathTransformerPolicy(MaskableActorCriticPolicy):
 
     def _build(self, lr_schedule):
         super()._build(lr_schedule)
-        self.action_net = PerCellHead(self._d_model, self._k_max, 4)
+        self.action_net = PerCellHead(self._d_model, self._k_max, 2)
