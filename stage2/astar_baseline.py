@@ -189,12 +189,12 @@ def run_test(scenario: int, n_agents: int = 10, n_episodes: int = 30,
     print(f"{'═'*62}")
 
     if save_results:
-        os.makedirs("result/astar_baseline", exist_ok=True)
+        os.makedirs("result/astar", exist_ok=True)
         ts  = datetime.now().strftime("%Y%m%d_%H%M%S")
         tag = f"s{scenario}_{n_agents}ppl_{ts}"
 
-        csv_path  = f"result/astar_baseline/test_results_{tag}.csv"
-        json_path = f"result/astar_baseline/test_summary_{tag}.json"
+        csv_path  = f"result/astar/test_results_{tag}.csv"
+        json_path = f"result/astar/test_summary_{tag}.json"
 
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=records[0].keys())
