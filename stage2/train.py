@@ -34,10 +34,11 @@ from astar_baseline import rule_based_action
 # 커리큘럼 래퍼
 # ══════════════════════════════════════════════
 class EvacCurriculumWrapper(gym.Wrapper):
-    def __init__(self, n_agents: int = 10, threshold: float = 0.85, window: int = 50):
+    def __init__(self, n_agents: int = None, threshold: float = 0.85, window: int = 50):
         self.current_scenario = 1
-        self.n_agents = n_agents
-        env = FireEvacEnv(scenario=1, n_agents=n_agents)
+        s1_n = SCENARIO_CONFIGS[1]["n_agents"] if n_agents is None else n_agents
+        self.n_agents = s1_n
+        env = FireEvacEnv(scenario=1, n_agents=s1_n)
         super().__init__(env)
         self.threshold = threshold
         self.window    = window
@@ -78,6 +79,8 @@ class EvacTrainCallback(BaseCallback):
         self.ep_rewards:  list = []
         self.ep_survival: list = []
         self._cum_rewards = None
+        self._ep_count    = 0
+        self._last_summary_step = 0
 
     def _on_step(self):
         rewards = self.locals["rewards"]
@@ -87,22 +90,41 @@ class EvacTrainCallback(BaseCallback):
             self._cum_rewards = np.zeros(len(rewards))
         self._cum_rewards += rewards
 
+        new_ep = False
         for i, done in enumerate(dones):
             if done:
                 self.ep_rewards.append(float(self._cum_rewards[i]))
                 self._cum_rewards[i] = 0.0
+                new_ep = True
+                self._ep_count += 1
 
         for info in self.locals.get("infos", []):
             if "survival_rate" in info:
                 self.ep_survival.append(info["survival_rate"])
 
-        if self.num_timesteps % self.log_interval == 0 and self.ep_survival:
+        # 에피소드 종료마다 현재 줄을 실시간 덮어쓰기
+        if new_ep and self.ep_survival:
+            n_ep  = min(len(self.ep_survival), 20)
+            avg_s = sum(self.ep_survival[-n_ep:]) / n_ep
+            last  = self.ep_survival[-1]
+            sc    = getattr(getattr(self.training_env, "envs", [None])[0],
+                            "current_scenario", "?")
+            print(f"\r  [ep {self._ep_count:>5}] S{sc} | "
+                  f"이번 {last:>5.1%} | "
+                  f"이동평균(20) {avg_s:>5.1%} | "
+                  f"Step {self.num_timesteps:>8,}",
+                  end="", flush=True)
+
+        # 10,000스텝마다 고정 요약 줄 출력
+        if (self.num_timesteps - self._last_summary_step >= self.log_interval
+                and self.ep_survival):
+            self._last_summary_step = self.num_timesteps
             n     = min(len(self.ep_survival), 100)
             avg_s = sum(self.ep_survival[-n:]) / n
             avg_r = (sum(self.ep_rewards[-n:]) / min(len(self.ep_rewards), n)
                      if self.ep_rewards else 0)
-            print(f"  Step {self.num_timesteps:>8,} | "
-                  f"생존율 {avg_s:>5.1%} | 보상 {avg_r:>+7.1f}")
+            print(f"\n  ── Step {self.num_timesteps:>8,} | "
+                  f"생존율(100ep) {avg_s:>5.1%} | 보상 {avg_r:>+7.1f}")
         return True
 
 
@@ -196,9 +218,9 @@ def pretrain_bc(model, obs_arr: np.ndarray, act_arr: np.ndarray,
 # ══════════════════════════════════════════════
 # 병렬 환경 팩토리
 # ══════════════════════════════════════════════
-def make_env(n_agents: int, seed: int):
+def make_env(seed: int):
     def _init():
-        env = EvacCurriculumWrapper(n_agents=n_agents)
+        env = EvacCurriculumWrapper()
         env.reset(seed=seed)
         return env
     return _init
@@ -254,9 +276,11 @@ def train_fire_evac(person_counts=(10, 30, 50),
     print(f"저장 폴더      : {run_dir}")
 
     for n in person_counts:
-        print(f"\n{'─'*62}\n인원수 {n}명 | 커리큘럼 학습 시작\n{'─'*62}")
+        s1_n = SCENARIO_CONFIGS[1]["n_agents"]
+        print(f"\n{'─'*62}\n커리큘럼 학습 시작 "
+              f"(S1 {s1_n}명 → 이후 시나리오별 인원수 자동 적용)\n{'─'*62}")
 
-        env_fns = [make_env(n_agents=n, seed=i) for i in range(n_envs)]
+        env_fns = [make_env(seed=i) for i in range(n_envs)]
         raw_env = (DummyVecEnv(env_fns) if platform.system() == "Windows"
                    else SubprocVecEnv(env_fns))
         vec_env = VecNormalize(raw_env, norm_obs=True, norm_reward=False,
