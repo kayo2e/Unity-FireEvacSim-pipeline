@@ -22,6 +22,11 @@ sys.path.insert(0, _STAGE2)
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
+# CPU에서 소형 행렬(seq=65) 연산 시 멀티스레드 오버헤드를 방지.
+# GPU 사용 시 이 설정은 무시된다.
+import torch
+torch.set_num_threads(1)
+
 try:
     from sb3_contrib import MaskablePPO
 except ImportError:
@@ -37,7 +42,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines3.common.callbacks import BaseCallback
 
 from env_core import SCENARIO_CONFIGS
-from joint_ppo.env_joint import JointEvacEnv
+from joint_ppo.env_joint import JointEvacEnv, K_MAX
 from joint_ppo.policy_joint import PathTransformerPolicy
 
 BASE_DIR   = _STAGE2
@@ -53,10 +58,11 @@ class JointCurriculumWrapper(gym.Wrapper):
     """생존율 임계치 도달 시 시나리오를 순서대로 진급."""
 
     def __init__(self, n_agents: int = 10, threshold: float = 0.85,
-                 window: int = 50):
+                 window: int = 50, k_max: int = K_MAX):
         self.current_scenario = 1
         self.n_agents         = n_agents
-        env = JointEvacEnv(scenario=1, n_agents=n_agents)
+        self._k_max           = k_max
+        env = JointEvacEnv(scenario=1, n_agents=n_agents, k_max=k_max)
         super().__init__(env)
         self.threshold = threshold
         self.window    = window
@@ -75,7 +81,8 @@ class JointCurriculumWrapper(gym.Wrapper):
                 self.current_scenario += 1
                 cfg_n = SCENARIO_CONFIGS[self.current_scenario]["n_agents"]
                 self.env = JointEvacEnv(
-                    scenario=self.current_scenario, n_agents=cfg_n)
+                    scenario=self.current_scenario, n_agents=cfg_n,
+                    k_max=self._k_max)
                 self.n_agents = cfg_n
                 self.recent   = []
                 print(f"\n[커리큘럼] ★ {self.current_scenario}단계 승급! "
@@ -132,22 +139,16 @@ class JointCallback(BaseCallback):
 # ══════════════════════════════════════════════
 def train(person_counts=(10,), total_timesteps: int = 300_000,
           n_envs: int = 4, d_model: int = 64,
-          nhead: int = 4, num_layers: int = 2):
-    import torch
-
+          nhead: int = 4, num_layers: int = 2,
+          k_max: int = K_MAX):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     os.makedirs(MODEL_DIR, exist_ok=True)
-
-    # n_lights는 모든 시나리오에서 동일 (BASE_GRID 고정)
-    _tmp = JointEvacEnv(scenario=1, n_agents=10)
-    n_lights = _tmp.n_lights
-    _tmp.close()
 
     print("=" * 62)
     print("화재대피유도시스템 — JointPPO (경로 Transformer) 학습")
     print(f"Policy    : PathTransformerPolicy")
-    print(f"           d_model={d_model} | nhead={nhead} | layers={num_layers}")
-    print(f"           n_lights={n_lights} | 활성 셀 마스킹 ON")
+    print(f"           k_max={k_max} | d_model={d_model} | nhead={nhead} | layers={num_layers}")
+    print(f"           seq={k_max+1} 토큰 → CPU 가능")
     print(f"디바이스  : {device} | 병렬 환경: {n_envs}개")
     print(f"모델 저장 : {MODEL_DIR}")
     print("=" * 62)
@@ -157,7 +158,7 @@ def train(person_counts=(10,), total_timesteps: int = 300_000,
 
         def _make_env(seed: int):
             def _init():
-                env = JointCurriculumWrapper(n_agents=n)
+                env = JointCurriculumWrapper(n_agents=n, k_max=k_max)
                 env.reset(seed=seed)
                 return env
             return _init
@@ -179,7 +180,7 @@ def train(person_counts=(10,), total_timesteps: int = 300_000,
             ent_coef        = 0.05,
             max_grad_norm   = 0.5,
             policy_kwargs   = dict(
-                n_lights   = n_lights,
+                k_max      = k_max,
                 d_model    = d_model,
                 nhead      = nhead,
                 num_layers = num_layers,
@@ -191,7 +192,6 @@ def train(person_counts=(10,), total_timesteps: int = 300_000,
             total_timesteps = total_timesteps,
             callback        = JointCallback(),
             tb_log_name     = f"JointPPO_{n}ppl",
-            progress_bar    = True,
         )
 
         save_path = os.path.join(MODEL_DIR, f"fire_evac_model_{n}ppl")
@@ -352,6 +352,8 @@ if __name__ == "__main__":
     parser.add_argument("--d-model",       type=int, default=64)
     parser.add_argument("--nhead",         type=int, default=4)
     parser.add_argument("--num-layers",    type=int, default=2)
+    parser.add_argument("--k-max",         type=int, default=K_MAX,
+                        help=f"제어할 최대 경로 셀 수 (기본 {K_MAX})")
     args = parser.parse_args()
 
     if args.mode == "train":
@@ -362,6 +364,7 @@ if __name__ == "__main__":
             d_model        = args.d_model,
             nhead          = args.nhead,
             num_layers     = args.num_layers,
+            k_max          = args.k_max,
         )
 
     elif args.mode == "test":
