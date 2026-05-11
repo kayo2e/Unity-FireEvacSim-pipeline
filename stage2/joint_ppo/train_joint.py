@@ -57,12 +57,13 @@ LOG_DIR    = os.path.join(BASE_DIR, "logs",   "joint_ppo")
 class JointCurriculumWrapper(gym.Wrapper):
     """생존율 임계치 도달 시 시나리오를 순서대로 진급."""
 
-    def __init__(self, n_agents: int = 10, threshold: float = 0.85,
+    def __init__(self, n_agents: int = None, threshold: float = 0.85,
                  window: int = 50, k_max: int = K_MAX):
         self.current_scenario = 1
-        self.n_agents         = n_agents
         self._k_max           = k_max
-        env = JointEvacEnv(scenario=1, n_agents=n_agents, k_max=k_max)
+        s1_n = SCENARIO_CONFIGS[1]["n_agents"] if n_agents is None else n_agents
+        self.n_agents         = s1_n
+        env = JointEvacEnv(scenario=1, n_agents=s1_n, k_max=k_max)
         super().__init__(env)
         self.threshold = threshold
         self.window    = window
@@ -110,6 +111,8 @@ class JointCallback(BaseCallback):
         self.ep_survival: list = []
         self.ep_rewards:  list = []
         self._cum_rewards = None
+        self._ep_count    = 0
+        self._last_summary_step = 0
 
     def _on_step(self):
         rewards = self.locals["rewards"]
@@ -117,20 +120,42 @@ class JointCallback(BaseCallback):
         if self._cum_rewards is None:
             self._cum_rewards = np.zeros(len(rewards))
         self._cum_rewards += rewards
+
+        new_ep = False
         for i, done in enumerate(dones):
             if done:
                 self.ep_rewards.append(float(self._cum_rewards[i]))
                 self._cum_rewards[i] = 0.0
+                new_ep = True
+                self._ep_count += 1
+
         for info in self.locals.get("infos", []):
             if "survival_rate" in info:
                 self.ep_survival.append(info["survival_rate"])
-        if self.num_timesteps % self.log_interval == 0 and self.ep_survival:
+
+        # 에피소드 종료마다 현재 줄을 실시간 덮어쓰기
+        if new_ep and self.ep_survival:
+            n_ep  = min(len(self.ep_survival), 20)
+            avg_s = sum(self.ep_survival[-n_ep:]) / n_ep
+            last  = self.ep_survival[-1]
+            sc    = getattr(getattr(self.training_env, "envs", [None])[0],
+                            "current_scenario", "?")
+            print(f"\r  [ep {self._ep_count:>5}] S{sc} | "
+                  f"이번 {last:>5.1%} | "
+                  f"이동평균(20) {avg_s:>5.1%} | "
+                  f"Step {self.num_timesteps:>8,}",
+                  end="", flush=True)
+
+        # 10,000스텝마다 고정 요약 줄 출력
+        if (self.num_timesteps - self._last_summary_step >= self.log_interval
+                and self.ep_survival):
+            self._last_summary_step = self.num_timesteps
             n     = min(len(self.ep_survival), 100)
             avg_s = sum(self.ep_survival[-n:]) / n
             avg_r = (sum(self.ep_rewards[-min(len(self.ep_rewards), n):]) / n
                      if self.ep_rewards else 0.0)
-            print(f"  Step {self.num_timesteps:>8,} | "
-                  f"생존율 {avg_s:>5.1%} | 보상 {avg_r:>+7.1f}")
+            print(f"\n  ── Step {self.num_timesteps:>8,} | "
+                  f"생존율(100ep) {avg_s:>5.1%} | 보상 {avg_r:>+7.1f}")
         return True
 
 
@@ -154,11 +179,13 @@ def train(person_counts=(10,), total_timesteps: int = 300_000,
     print("=" * 62)
 
     for n in person_counts:
-        print(f"\n{'─'*62}\n인원수 {n}명 | 커리큘럼 학습 시작\n{'─'*62}")
+        s1_n = SCENARIO_CONFIGS[1]["n_agents"]
+        print(f"\n{'─'*62}\n커리큘럼 학습 시작 "
+              f"(S1 {s1_n}명 → 이후 시나리오별 인원수 자동 적용)\n{'─'*62}")
 
         def _make_env(seed: int):
             def _init():
-                env = JointCurriculumWrapper(n_agents=n, k_max=k_max)
+                env = JointCurriculumWrapper(k_max=k_max)
                 env.reset(seed=seed)
                 return env
             return _init
