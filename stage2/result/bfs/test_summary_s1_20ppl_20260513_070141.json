@@ -1,0 +1,63 @@
+{
+  "model": "bfs_hazard_baseline",
+  "scenario": 1,
+  "scenario_name": "기본 탈출",
+  "n_agents": 20,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.995,
+    "std": 0.015,
+    "min": 0.95,
+    "max": 1.0,
+    "median": 1.0
+  },
+  "total_reward": {
+    "mean": 427.9853,
+    "std": 15.6395,
+    "min": 374.68,
+    "max": 446.75,
+    "median": 431.635
+  },
+  "steps_taken": {
+    "mean": 75.9667,
+    "std": 16.8888,
+    "min": 39.0,
+    "max": 112.0,
+    "median": 74.0
+  },
+  "escaped": {
+    "mean": 19.9,
+    "std": 0.3,
+    "min": 19.0,
+    "max": 20.0,
+    "median": 20.0
+  },
+  "escaped_A": {
+    "mean": 9.2,
+    "std": 5.3938,
+    "min": 2.0,
+    "max": 19.0,
+    "median": 9.0
+  },
+  "escaped_B": {
+    "mean": 10.7,
+    "std": 5.4415,
+    "min": 1.0,
+    "max": 18.0,
+    "median": 11.0
+  },
+  "dead": {
+    "mean": 0.1,
+    "std": 0.3,
+    "min": 0.0,
+    "max": 1.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 18.9,
+    "std": 6.6701,
+    "min": 8.0,
+    "max": 32.0,
+    "median": 19.0
+  }
+}

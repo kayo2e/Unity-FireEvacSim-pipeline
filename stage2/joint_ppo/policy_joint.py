@@ -160,3 +160,16 @@ class PathTransformerPolicy(MaskableActorCriticPolicy):
     def _build(self, lr_schedule):
         super()._build(lr_schedule)
         self.action_net = PerCellHead(self._d_model, self._k_max, 2)
+
+    def evaluate_actions(self, obs, actions, action_masks=None):
+        """
+        PPO ratio 폭발 방지: K_MAX=64 joint log_prob은 64개 ratio의 곱 →
+        개별 ratio 0.01 변화만으로 exp(64×0.01)=1.9 → clip 즉시 트리거 → 그래디언트 ≈ 0.
+        log_prob / k_max로 per-slot 평균화하면 clip이 per-action 단위로 작동.
+        """
+        values, log_prob, entropy = super().evaluate_actions(
+            obs, actions, action_masks=action_masks)
+        log_prob = log_prob / self._k_max
+        if entropy is not None:
+            entropy = entropy / self._k_max
+        return values, log_prob, entropy

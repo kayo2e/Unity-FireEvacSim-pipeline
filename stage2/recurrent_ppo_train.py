@@ -11,8 +11,9 @@ recurrent_ppo_train.py — RecurrentPPO 학습/테스트
 Ablation 비교용: ppo_train.py와 동일 조건으로 학습 후 성능 비교.
 
 실행:
-    python recurrent_ppo_train.py --mode train --people 10 --steps 300000 --bc-steps 0
-    python recurrent_ppo_train.py --mode test  --model-n 10 --all-scenarios --test-episodes 30
+    python recurrent_ppo_train.py --mode train --auto-scenarios --steps 3000000
+    python recurrent_ppo_train.py --mode train --people 20 40   --steps 3000000
+    python recurrent_ppo_train.py --mode test  --all-scenarios  --test-episodes 30
 """
 
 import sys
@@ -31,10 +32,13 @@ except ImportError:
     )
 
 from stable_baselines3.common.env_checker import check_env
+from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
+from stable_baselines3.common.vec_env import VecNormalize
 
 from env_core import FireEvacEnv, SCENARIO_CONFIGS, verify_connectivity
 from train_common import (BASE_DIR, EvacTrainCallback, make_vec_env,
-                          collect_astar_demos, pretrain_bc, test_fire_evac)
+                          collect_astar_demos, pretrain_bc, test_fire_evac,
+                          find_latest_checkpoint)
 
 MODEL_DIR  = os.path.join(BASE_DIR, "model",  "recurrent_ppo")
 RESULT_DIR = os.path.join(BASE_DIR, "result", "recurrent_ppo")
@@ -44,10 +48,13 @@ LOG_DIR    = os.path.join(BASE_DIR, "logs",   "recurrent_ppo")
 # ══════════════════════════════════════════════
 # 학습
 # ══════════════════════════════════════════════
-def train(person_counts=(10,), total_timesteps=300_000,
+def train(person_counts=None, total_timesteps=300_000,
           n_envs=None, bc_demo_steps=0, bc_s4_steps=2000, bc_epochs=10,
           lstm_hidden_size=256):
     import torch
+
+    if person_counts is None:
+        person_counts = sorted(set(c["n_agents"] for c in SCENARIO_CONFIGS.values()))
 
     n_cpu = __import__('multiprocessing').cpu_count()
     if n_envs is None:
@@ -69,40 +76,67 @@ def train(person_counts=(10,), total_timesteps=300_000,
     print("=" * 62)
 
     for n in person_counts:
-        print(f"\n{'─'*62}\n인원수 {n}명 | 커리큘럼 학습 시작\n{'─'*62}")
+        ckpt_dir    = os.path.join(MODEL_DIR, "checkpoints")
+        ckpt_prefix = f"ckpt_{n}ppl"
+        ckpt_path, vnorm_ckpt, ckpt_steps = find_latest_checkpoint(ckpt_dir, ckpt_prefix)
+        os.makedirs(ckpt_dir, exist_ok=True)
 
-        vec_env  = make_vec_env(n_agents=n, n_envs=n_envs)
-        callback = EvacTrainCallback(log_interval=10_000)
+        if ckpt_path and ckpt_steps < total_timesteps:
+            print(f"\n{'─'*62}\n체크포인트 이어서 학습 "
+                  f"({n}명 | {ckpt_steps:,} → {total_timesteps:,} steps)\n{'─'*62}")
+            vec_env = make_vec_env(n_envs=n_envs, n_agents=n)
+            if os.path.exists(vnorm_ckpt):
+                vec_env = VecNormalize.load(vnorm_ckpt, vec_env.venv)
+                vec_env.training = True
+            model = RecurrentPPO.load(ckpt_path, env=vec_env, device=device,
+                                      tensorboard_log=LOG_DIR)
+            remaining = total_timesteps - ckpt_steps
+            reset_num = False
+        else:
+            print(f"\n{'─'*62}\n커리큘럼 학습 시작 "
+                  f"({n}명 기준, 이후 시나리오 인원수 자동 적용)\n{'─'*62}")
+            vec_env = make_vec_env(n_envs=n_envs, n_agents=n)
+            model = RecurrentPPO(
+                "MlpLstmPolicy", vec_env,
+                device          = device,
+                verbose         = 0,
+                n_steps         = 2048,
+                batch_size      = 256,
+                n_epochs        = 10,
+                gamma           = 0.99,
+                learning_rate   = 3e-4,
+                clip_range      = 0.2,
+                ent_coef        = 0.05,
+                max_grad_norm   = 0.5,
+                policy_kwargs   = dict(lstm_hidden_size=lstm_hidden_size,
+                                       net_arch=[256, 256]),
+                tensorboard_log = LOG_DIR,
+            )
+            remaining = total_timesteps
+            reset_num = True
 
-        model = RecurrentPPO(
-            "MlpLstmPolicy", vec_env,
-            device          = device,
-            verbose         = 0,
-            n_steps         = 2048,
-            batch_size      = 256,
-            n_epochs        = 10,
-            gamma           = 0.99,
-            learning_rate   = 3e-4,
-            clip_range      = 0.2,
-            ent_coef        = 0.05,
-            max_grad_norm   = 0.5,
-            policy_kwargs   = dict(lstm_hidden_size=lstm_hidden_size,
-                                   net_arch=[256, 256]),
-            tensorboard_log = LOG_DIR,
-        )
-
-        if bc_demo_steps > 0:
+        if bc_demo_steps > 0 and reset_num:
             print(f"\n[BC 사전학습] 데모 수집 중...")
             obs_demo, act_demo = collect_astar_demos(
                 n_agents=n, n_envs_demo=4,
                 n_steps=bc_demo_steps, s4_steps=bc_s4_steps)
             pretrain_bc(model, obs_demo, act_demo, n_epochs=bc_epochs)
 
+        ckpt_cb = CheckpointCallback(
+            save_freq         = max(500_000 // n_envs, 1),
+            save_path         = ckpt_dir,
+            name_prefix       = ckpt_prefix,
+            save_vecnormalize = True,
+            verbose           = 1,
+        )
+        callback = CallbackList([EvacTrainCallback(log_interval=10_000), ckpt_cb])
+
         model.learn(
-            total_timesteps = total_timesteps,
-            callback        = callback,
-            tb_log_name     = f"RecurrentPPO_{n}ppl",
-            progress_bar    = True,
+            total_timesteps     = remaining,
+            callback            = callback,
+            tb_log_name         = f"RecurrentPPO_{n}ppl",
+            progress_bar        = True,
+            reset_num_timesteps = reset_num,
         )
 
         save_path = os.path.join(MODEL_DIR, f"fire_evac_model_{n}ppl")
@@ -123,8 +157,11 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="RecurrentPPO 화재대피 학습/테스트")
-    parser.add_argument("--mode",          choices=["train", "test", "check"], default="train")
-    parser.add_argument("--people",        type=int, nargs="+", default=[10])
+    parser.add_argument("--mode",           choices=["train", "test", "check"], default="train")
+    parser.add_argument("--auto-scenarios", action="store_true",
+                        help="SCENARIO_CONFIGS의 고유 n_agents로 자동 학습 (기본 동작)")
+    parser.add_argument("--people",        type=int, nargs="+", default=None,
+                        help="학습할 인원수 목록 (미지정 시 --auto-scenarios와 동일)")
     parser.add_argument("--steps",         type=int, default=300_000)
     parser.add_argument("--n-envs",        type=int, default=None)
     parser.add_argument("--test-n",        type=int, default=10)
@@ -151,8 +188,14 @@ if __name__ == "__main__":
         print("환경 검증 완료!")
 
     elif args.mode == "train":
+        if args.people is not None:
+            counts = args.people
+        elif args.auto_scenarios:
+            counts = sorted(set(c["n_agents"] for c in SCENARIO_CONFIGS.values()))
+        else:
+            counts = None
         train(
-            person_counts    = args.people,
+            person_counts    = counts,
             total_timesteps  = args.steps,
             n_envs           = args.n_envs,
             bc_demo_steps    = args.bc_steps,

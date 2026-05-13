@@ -1,0 +1,63 @@
+{
+  "model": "bfs_hazard_baseline",
+  "scenario": 3,
+  "scenario_name": "진입로 차단",
+  "n_agents": 40,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.8208,
+    "std": 0.0944,
+    "min": 0.6,
+    "max": 0.95,
+    "median": 0.85
+  },
+  "total_reward": {
+    "mean": 495.4113,
+    "std": 208.2946,
+    "min": 28.34,
+    "max": 791.04,
+    "median": 561.23
+  },
+  "steps_taken": {
+    "mean": 82.3,
+    "std": 9.6787,
+    "min": 60.0,
+    "max": 100.0,
+    "median": 83.0
+  },
+  "escaped": {
+    "mean": 32.8333,
+    "std": 3.7779,
+    "min": 24.0,
+    "max": 38.0,
+    "median": 34.0
+  },
+  "escaped_A": {
+    "mean": 3.7333,
+    "std": 1.5691,
+    "min": 0.0,
+    "max": 8.0,
+    "median": 3.5
+  },
+  "escaped_B": {
+    "mean": 29.1,
+    "std": 3.7537,
+    "min": 21.0,
+    "max": 36.0,
+    "median": 30.0
+  },
+  "dead": {
+    "mean": 7.1667,
+    "std": 3.7779,
+    "min": 2.0,
+    "max": 16.0,
+    "median": 6.0
+  },
+  "max_fire_cells": {
+    "mean": 595.6667,
+    "std": 71.693,
+    "min": 372.0,
+    "max": 681.0,
+    "median": 592.5
+  }
+}
