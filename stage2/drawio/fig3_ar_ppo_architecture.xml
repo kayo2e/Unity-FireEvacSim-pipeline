@@ -1,0 +1,330 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="fig3" name="3. AR-PPO Architecture">
+    <mxGraphModel dx="1422" dy="762" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1280" pageHeight="860" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ══ TITLE ══ -->
+        <mxCell id="2" value="AR-PPO Model Architecture — Autoregressive Recurrent Policy Network"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=16;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="80" y="14" width="1100" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- ══ SECTION A: OBSERVATION (25-dim) ══ -->
+        <mxCell id="obs_bg" value=""
+          style="rounded=2;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;strokeWidth=2;arcSize=4;"
+          vertex="1" parent="1">
+          <mxGeometry x="18" y="58" width="258" height="740" as="geometry" />
+        </mxCell>
+
+        <mxCell id="obs_title" value="Observation  (25-dim)"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#0D47A1;"
+          vertex="1" parent="1">
+          <mxGeometry x="20" y="62" width="254" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- Cell Features -->
+        <mxCell id="cell_box" value="&lt;b&gt;Cell Features  (8-dim)&lt;/b&gt;"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C5CAE9;strokeColor=#3949AB;fontSize=10;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="28" y="92" width="238" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1" value="fire_near   — nearby fire presence" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#9FA8DA;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="128" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="c2" value="smoke_near  — nearby smoke" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#9FA8DA;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="152" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="c3" value="density     — local crowd density" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#9FA8DA;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="176" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="c4" value="active_flag — slot occupied" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#9FA8DA;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="200" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="c5" value="dist_A      — BFS dist to Exit A" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#9FA8DA;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="224" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="c6" value="dist_B      — BFS dist to Exit B" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#9FA8DA;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="248" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="c7" value="row         — cell row (normalized)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#9FA8DA;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="272" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="c8" value="col         — cell col (normalized)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#9FA8DA;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="296" width="238" height="22" as="geometry" /></mxCell>
+
+        <!-- Global Features -->
+        <mxCell id="glob_box" value="&lt;b&gt;Global Features  (15-dim)  F1~F15&lt;/b&gt;"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF9C4;strokeColor=#F57F17;fontSize=10;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="28" y="328" width="238" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="g1" value="F1/F2   Exit A/B fire threat" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#FFE082;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="364" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="g2" value="F3      Ratio closer to Exit A" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#FFE082;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="388" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="g3" value="F4/F5   Escaped / dead ratio" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#FFE082;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="412" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="g4" value="F6      Time progress" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#FFE082;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="436" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="g5" value="F7/F8   Exit A/B congestion" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#FFE082;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="460" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="g6" value="F9      Mean panic index" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#FFE082;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="484" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="g7" value="F10/F11 Mean BFS dist to exits" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#FFE082;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="508" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="g8" value="F12/F13 Fire centroid position" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#FFE082;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="532" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="g9" value="F14/F15 Fire approach speed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#FFE082;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="556" width="238" height="22" as="geometry" /></mxCell>
+
+        <!-- Position Features -->
+        <mxCell id="pos_box" value="&lt;b&gt;Position Features  (2-dim)&lt;/b&gt;"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#AD1457;fontSize=10;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="28" y="590" width="238" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p1" value="slot_idx / K_MAX    — 현재 슬롯 위치" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#F48FB1;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="626" width="238" height="22" as="geometry" /></mxCell>
+        <mxCell id="p2" value="n_active / K_MAX    — 활성 슬롯 수" style="rounded=1;whiteSpace=wrap;html=1;fillColor=white;strokeColor=#F48FB1;fontSize=9;align=left;" vertex="1" parent="1"><mxGeometry x="28" y="650" width="238" height="22" as="geometry" /></mxCell>
+
+        <mxCell id="pos_note" value="LSTM이 시퀀스 내 위치를 인식하는 핵심 피처"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=8;fontStyle=2;fontColor=#AD1457;"
+          vertex="1" parent="1">
+          <mxGeometry x="28" y="675" width="238" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- ══ SECTION B: NETWORK ══ -->
+        <!-- Arrow obs → FC1 -->
+        <mxCell id="e_obs_fc1" value="25-dim" style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2;strokeColor=#1565C0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=9;fontStyle=2;" edge="1" source="obs_bg" target="fc1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- FC1 -->
+        <mxCell id="fc1" value="FC (256)  +  ReLU"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#388E3C;strokeWidth=2;fontSize=11;fontStyle=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="310" y="330" width="180" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_fc1_fc2" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#388E3C;strokeWidth=1.5;" edge="1" source="fc1" target="fc2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- FC2 -->
+        <mxCell id="fc2" value="FC (256)  +  ReLU"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#388E3C;strokeWidth=2;fontSize=11;fontStyle=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="310" y="418" width="180" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_fc2_lstm" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#388E3C;strokeWidth=1.5;" edge="1" source="fc2" target="lstm" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- LSTM -->
+        <mxCell id="lstm" value="LSTM  (hidden_size = 256)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#6A1B9A;strokeWidth=2.5;fontSize=12;fontStyle=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="295" y="512" width="210" height="58" as="geometry" />
+        </mxCell>
+
+        <!-- LSTM recurrent arrow (h, c) -->
+        <mxCell id="lstm_loop" value="(h, c)"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7B1FA2;strokeWidth=2;fontColor=#7B1FA2;fontSize=10;fontStyle=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;endArrow=block;startArrow=block;"
+          edge="1" source="lstm" target="lstm" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="265" y="541" />
+              <mxPoint x="250" y="541" />
+              <mxPoint x="250" y="600" />
+              <mxPoint x="265" y="600" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- (h,c) pass to next slot label -->
+        <mxCell id="lstm_note" value="slot i → slot i+1&lt;br&gt;(h, c) 전달"
+          style="text;html=1;strokeColor=#7B1FA2;fillColor=#F3E5F5;align=center;fontSize=9;fontStyle=2;fontColor=#7B1FA2;"
+          vertex="1" parent="1">
+          <mxGeometry x="200" y="558" width="88" height="32" as="geometry" />
+        </mxCell>
+
+        <!-- Branch split -->
+        <mxCell id="e_lstm_split" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#546E7A;strokeWidth=1.5;" edge="1" source="lstm" target="split" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="split" value=""
+          style="ellipse;whiteSpace=wrap;html=1;fillColor=#546E7A;strokeColor=#37474F;width=14;height=14;"
+          vertex="1" parent="1">
+          <mxGeometry x="393" y="608" width="14" height="14" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow to Actor -->
+        <mxCell id="e_split_actor" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#C62828;strokeWidth=1.5;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" source="split" target="actor" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="350" y="615" />
+              <mxPoint x="350" y="660" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Arrow to Critic -->
+        <mxCell id="e_split_critic" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#00838F;strokeWidth=1.5;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" source="split" target="critic" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="450" y="615" />
+              <mxPoint x="450" y="660" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Actor -->
+        <mxCell id="actor" value="&lt;b&gt;Actor&lt;/b&gt;&lt;br&gt;FC → softmax"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCDD2;strokeColor=#C62828;strokeWidth=2;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="292" y="655" width="130" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- Critic -->
+        <mxCell id="critic" value="&lt;b&gt;Critic&lt;/b&gt;&lt;br&gt;FC → V(s)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F7FA;strokeColor=#00838F;strokeWidth=2;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="442" y="655" width="130" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_actor_out" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#C62828;strokeWidth=1.5;" edge="1" source="actor" target="actor_out" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_critic_out" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#00838F;strokeWidth=1.5;" edge="1" source="critic" target="critic_out" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Actor output -->
+        <mxCell id="actor_out" value="P(Exit A),  P(Exit B)&lt;br&gt;→ argmax → action_i ∈ {0, 1}"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B71C1C;strokeColor=#C62828;fontColor=#ffffff;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="276" y="752" width="160" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Critic output -->
+        <mxCell id="critic_out" value="Value Estimate&lt;br&gt;V(s_i)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#006064;strokeColor=#00838F;fontColor=#ffffff;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="456" y="752" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ══ SECTION C: AUTOREGRESSIVE FLOW ══ -->
+        <mxCell id="ar_bg" value=""
+          style="rounded=2;whiteSpace=wrap;html=1;fillColor=#FFFDE7;strokeColor=#F9A825;strokeWidth=2;arcSize=4;"
+          vertex="1" parent="1">
+          <mxGeometry x="640" y="58" width="610" height="740" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ar_title" value="Autoregressive Slot Sequence  (K_MAX = 64 steps per tick)"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#E65100;"
+          vertex="1" parent="1">
+          <mxGeometry x="645" y="64" width="600" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- Slot 0 -->
+        <mxCell id="slot0" value="&lt;b&gt;Slot 0&lt;/b&gt;  (closest to exit)&lt;br&gt;obs_0 → FC×2 → LSTM → action_0"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF9C4;strokeColor=#F9A825;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="658" y="100" width="290" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s0_act" value="action_0 = 0  →  light dir toward Exit A&lt;br&gt;via  argmin BFS dist_to_A (N/S/E/W)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;fontSize=9;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="968" y="100" width="268" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_s0_act" value="action_0" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#F9A825;strokeWidth=1.5;fontSize=9;" edge="1" source="slot0" target="s0_act" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- (h,c) arrow 0→1 -->
+        <mxCell id="hc01" value="(h₀, c₀)"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7B1FA2;strokeWidth=2;fontColor=#7B1FA2;fontSize=9;fontStyle=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;"
+          edge="1" source="slot0" target="slot1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Slot 1 -->
+        <mxCell id="slot1" value="&lt;b&gt;Slot 1&lt;/b&gt;&lt;br&gt;obs_1 → FC×2 → LSTM → action_1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF9C4;strokeColor=#F9A825;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="658" y="220" width="290" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s1_act" value="action_1 = 1  →  light dir toward Exit B&lt;br&gt;via  argmin BFS dist_to_B (N/S/E/W)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;fontSize=9;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="968" y="220" width="268" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_s1_act" value="action_1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#F9A825;strokeWidth=1.5;fontSize=9;" edge="1" source="slot1" target="s1_act" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- (h,c) arrow 1→2 -->
+        <mxCell id="hc12" value="(h₁, c₁)"
+          style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7B1FA2;strokeWidth=2;fontColor=#7B1FA2;fontSize=9;fontStyle=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;"
+          edge="1" source="slot1" target="slot2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Slot 2 -->
+        <mxCell id="slot2" value="&lt;b&gt;Slot 2&lt;/b&gt;&lt;br&gt;obs_2 → FC×2 → LSTM → action_2"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF9C4;strokeColor=#F9A825;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="658" y="340" width="290" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s2_act" value="action_2 = 0  →  Exit A 방향&lt;br&gt;전역 일관성: LSTM이 이전 결정을 기억"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF8E1;strokeColor=#F9A825;fontSize=9;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="968" y="340" width="268" height="55" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_s2_act" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#F9A825;strokeWidth=1.5;" edge="1" source="slot2" target="s2_act" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- dots -->
+        <mxCell id="dots" value="⋮&lt;br&gt;(h_i, c_i)"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=18;fontColor=#7B1FA2;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="768" y="408" width="70" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- Slot K-1 -->
+        <mxCell id="slotK" value="&lt;b&gt;Slot K-1&lt;/b&gt;  (farthest from exit)&lt;br&gt;obs_K-1 → FC×2 → LSTM → action_K-1"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE082;strokeColor=#F9A825;strokeWidth=2;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="658" y="476" width="290" height="58" as="geometry" />
+        </mxCell>
+
+        <!-- All actions → advance_sim -->
+        <mxCell id="combine" value="actions[ 0 .. K-1 ]  accumulated"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFB300;strokeColor=#E65100;fontColor=#212121;fontSize=10;fontStyle=1;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="658" y="580" width="290" height="42" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_slotK_combine" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#F9A825;strokeWidth=1.5;" edge="1" source="slotK" target="combine" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="advance" value="&lt;b&gt;_advance_sim()&lt;/b&gt;  — 1 Simulation Tick&lt;br&gt;actions → light_dirs → env.step()&lt;br&gt;화재 확산 · 에이전트 이동 · 보상 반환"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E65100;strokeColor=#BF360C;fontColor=#ffffff;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="643" y="650" width="320" height="72" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e_combine_advance" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#E65100;strokeWidth=2;" edge="1" source="combine" target="advance" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Key Insight box -->
+        <mxCell id="insight" value="&lt;b&gt;Key Insight&lt;/b&gt;&lt;br&gt;RL  (학습): 어느 출구로? Exit A / Exit B 선택&lt;br&gt;BFS (규칙): 어떻게 가나? 화재 회피 최단 경로&lt;br&gt;LSTM: K 슬롯 간 전역 일관성 유지"
+          style="rounded=2;whiteSpace=wrap;html=1;fillColor=#263238;strokeColor=#37474F;fontColor=#ECEFF1;fontSize=10;align=center;strokeWidth=2;"
+          vertex="1" parent="1">
+          <mxGeometry x="655" y="750" width="570" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- slot path_slots label -->
+        <mxCell id="path_note" value="path_slots 정렬 기준:&lt;br&gt;출구 거리 가까운 순 (BFS)"
+          style="text;html=1;strokeColor=#F9A825;fillColor=#FFF8E1;align=center;fontSize=9;fontStyle=2;fontColor=#E65100;"
+          vertex="1" parent="1">
+          <mxGeometry x="968" y="476" width="230" height="38" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,63 @@
+{
+  "model": "simple_bfs_baseline",
+  "scenario": 1,
+  "scenario_name": "기본 탈출",
+  "n_agents": 20,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 1.0,
+    "std": 0.0,
+    "min": 1.0,
+    "max": 1.0,
+    "median": 1.0
+  },
+  "total_reward": {
+    "mean": 433.763,
+    "std": 10.4654,
+    "min": 412.35,
+    "max": 451.34,
+    "median": 434.09
+  },
+  "steps_taken": {
+    "mean": 79.6667,
+    "std": 17.9301,
+    "min": 45.0,
+    "max": 113.0,
+    "median": 81.5
+  },
+  "escaped": {
+    "mean": 20.0,
+    "std": 0.0,
+    "min": 20.0,
+    "max": 20.0,
+    "median": 20.0
+  },
+  "escaped_A": {
+    "mean": 9.9,
+    "std": 5.9908,
+    "min": 1.0,
+    "max": 20.0,
+    "median": 10.5
+  },
+  "escaped_B": {
+    "mean": 10.1,
+    "std": 5.9908,
+    "min": 0.0,
+    "max": 19.0,
+    "median": 9.5
+  },
+  "dead": {
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 19.8333,
+    "std": 10.1524,
+    "min": 3.0,
+    "max": 50.0,
+    "median": 18.0
+  }
+}

@@ -295,6 +295,7 @@ def train(person_counts=(10,), total_timesteps: int = 300_000,
             total_timesteps = total_timesteps,
             callback        = JointCallback(save_dir=RESULT_DIR),
             tb_log_name     = f"JointPPO_{n}ppl",
+            progress_bar    = True,
         )
 
         save_path = os.path.join(MODEL_DIR, f"fire_evac_model_{n}ppl")
@@ -444,7 +445,7 @@ if __name__ == "__main__":
     parser.add_argument("--mode",          choices=["train", "test"], default="train")
     parser.add_argument("--people",        type=int, nargs="+", default=[10])
     parser.add_argument("--steps",         type=int, default=300_000)
-    parser.add_argument("--n-envs",        type=int, default=4)
+    parser.add_argument("--n-envs",        type=int, default=32)
     parser.add_argument("--test-n",        type=int, default=10)
     parser.add_argument("--test-scenario", type=int, default=1)
     parser.add_argument("--test-episodes", type=int, default=30)

@@ -1,0 +1,181 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="fig1" name="1. System Framework">
+    <mxGraphModel dx="1422" dy="762" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1400" pageHeight="620" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ══ TITLE ══ -->
+        <mxCell id="2" value="Vision-based Fire Evacuation Guidance System — Overall Framework"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=17;fontStyle=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="100" y="18" width="1180" height="38" as="geometry" />
+        </mxCell>
+
+        <!-- ══ STAGE 1 CONTAINER ══ -->
+        <mxCell id="10" value=""
+          style="rounded=2;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;strokeWidth=2.5;arcSize=4;"
+          vertex="1" parent="1">
+          <mxGeometry x="20" y="65" width="355" height="500" as="geometry" />
+        </mxCell>
+
+        <mxCell id="11" value="&lt;b&gt;Stage 1&lt;/b&gt;&lt;br&gt;Vision-based Auto Mapping"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2E7D32;strokeColor=#1B5E20;fontColor=#ffffff;fontSize=12;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="30" y="76" width="335" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="12" value="&lt;b&gt;Input&lt;/b&gt;&lt;br&gt;Building Floor Plan Image&lt;br&gt;(안내도 이미지 1장)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#388E3C;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="50" y="148" width="295" height="58" as="geometry" />
+        </mxCell>
+
+        <mxCell id="13" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#2E7D32;strokeWidth=1.5;" edge="1" source="12" target="14" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="14" value="&lt;b&gt;Processing&lt;/b&gt;&lt;br&gt;OpenCV Edge Detection&lt;br&gt;Wall / Exit Extraction&lt;br&gt;Coordinate Normalization"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A5D6A7;strokeColor=#2E7D32;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="50" y="236" width="295" height="82" as="geometry" />
+        </mxCell>
+
+        <mxCell id="15" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#2E7D32;strokeWidth=1.5;" edge="1" source="14" target="16" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="16" value="&lt;b&gt;Output&lt;/b&gt;&lt;br&gt;Grid Map  (numpy array)&lt;br&gt;WALKABLE / WALL / EXIT cells"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#66BB6A;strokeColor=#2E7D32;fontColor=#ffffff;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="50" y="348" width="295" height="62" as="geometry" />
+        </mxCell>
+
+        <mxCell id="17" value="✓ Completed — Sangsang Hall B2F"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=9;fontStyle=2;fontColor=#2E7D32;"
+          vertex="1" parent="1">
+          <mxGeometry x="30" y="430" width="335" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="18" value="범용 파이프라인 · 건물별 수동 맵핑 비용 절감"
+          style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=9;fontColor=#388E3C;"
+          vertex="1" parent="1">
+          <mxGeometry x="30" y="454" width="335" height="22" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow S1 → S2 -->
+        <mxCell id="19" value="Grid Map"
+          style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2.5;strokeColor=#546E7A;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontStyle=2;fontSize=9;"
+          edge="1" source="10" target="30" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ══ STAGE 2 CONTAINER ══ -->
+        <mxCell id="30" value=""
+          style="rounded=2;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;strokeWidth=2.5;arcSize=4;"
+          vertex="1" parent="1">
+          <mxGeometry x="430" y="65" width="430" height="500" as="geometry" />
+        </mxCell>
+
+        <mxCell id="31" value="&lt;b&gt;Stage 2&lt;/b&gt;&lt;br&gt;Autoregressive Recurrent PPO Training"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1565C0;strokeColor=#0D47A1;fontColor=#ffffff;fontSize=12;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="440" y="76" width="410" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="32" value="&lt;b&gt;Autoregressive MDP Decomposition&lt;/b&gt;&lt;br&gt;거대 액션 공간 (2^N) → Discrete(2) per slot&lt;br&gt;1 tick = K_MAX sequential gym steps"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="450" y="148" width="390" height="75" as="geometry" />
+        </mxCell>
+
+        <mxCell id="33" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1565C0;strokeWidth=1.5;" edge="1" source="32" target="34" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="34" value="&lt;b&gt;RecurrentPPO + LSTM Policy&lt;/b&gt;&lt;br&gt;obs(25-dim) → FC(256)×2 → LSTM(256)&lt;br&gt;Actor: softmax → P(A) / P(B)  |  Critic: V(s)&lt;br&gt;LSTM (h,c) flow across K slots"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#90CAF9;strokeColor=#1565C0;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="450" y="250" width="390" height="85" as="geometry" />
+        </mxCell>
+
+        <mxCell id="35" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1565C0;strokeWidth=1.5;" edge="1" source="34" target="36" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="36" value="&lt;b&gt;4-Stage Curriculum&lt;/b&gt;&lt;br&gt;S1 (20 agents, fixed fire) → S2 → S3 (exit blocked) → S4 (40 agents, full spread)&lt;br&gt;Advance threshold: survival rate ≥ 80%"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#64B5F6;strokeColor=#1565C0;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="450" y="365" width="390" height="75" as="geometry" />
+        </mxCell>
+
+        <mxCell id="37" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1565C0;strokeWidth=1.5;" edge="1" source="36" target="38" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="38" value="&lt;b&gt;Output&lt;/b&gt;  Trained Policy (.zip)  +  VecNormalize (.pkl)"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1565C0;strokeColor=#0D47A1;fontColor=#ffffff;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="450" y="462" width="390" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow S2 → S3 -->
+        <mxCell id="39" value="Policy (.onnx)"
+          style="edgeStyle=orthogonalEdgeStyle;strokeWidth=2.5;strokeColor=#546E7A;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontStyle=2;fontSize=9;"
+          edge="1" source="30" target="50" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ══ STAGE 3 CONTAINER ══ -->
+        <mxCell id="50" value=""
+          style="rounded=2;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#4527A0;strokeWidth=2.5;arcSize=4;"
+          vertex="1" parent="1">
+          <mxGeometry x="920" y="65" width="450" height="500" as="geometry" />
+        </mxCell>
+
+        <mxCell id="51" value="&lt;b&gt;Stage 3&lt;/b&gt;&lt;br&gt;Unity 3D Verification"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4527A0;strokeColor=#311B92;fontColor=#ffffff;fontSize=12;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="930" y="76" width="430" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="52" value="&lt;b&gt;Policy Export&lt;/b&gt;&lt;br&gt;RecurrentPPO → ONNX (.onnx)&lt;br&gt;Unity ML-Agents 호환 포맷"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D1C4E9;strokeColor=#4527A0;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="940" y="148" width="410" height="68" as="geometry" />
+        </mxCell>
+
+        <mxCell id="53" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#4527A0;strokeWidth=1.5;" edge="1" source="52" target="54" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="54" value="&lt;b&gt;Hybrid Control Architecture (RL + BFS)&lt;/b&gt;&lt;br&gt;RL (Learned): 출구 선택 — Exit A or Exit B&lt;br&gt;BFS (Rule-based): 화재 회피 최단 경로 탐색&lt;br&gt;→ Guidance Light Direction 결정"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B39DDB;strokeColor=#4527A0;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="940" y="240" width="410" height="92" as="geometry" />
+        </mxCell>
+
+        <mxCell id="55" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#4527A0;strokeWidth=1.5;" edge="1" source="54" target="56" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="56" value="&lt;b&gt;Unity 3D Simulation&lt;/b&gt;&lt;br&gt;실시간 화재 확산 + 군중 대피 렌더링&lt;br&gt;레이저 유도등 연동 (Laser Guidance)&lt;br&gt;대피 경로 실증 검증"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7E57C2;strokeColor=#4527A0;fontColor=#ffffff;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="940" y="355" width="410" height="92" as="geometry" />
+        </mxCell>
+
+        <mxCell id="57" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#4527A0;strokeWidth=1.5;" edge="1" source="56" target="58" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="58" value="&lt;b&gt;Output&lt;/b&gt;  대피 효율 실증 + 레이저 유도 연동성 검증"
+          style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4527A0;strokeColor=#311B92;fontColor=#ffffff;fontSize=10;align=center;"
+          vertex="1" parent="1">
+          <mxGeometry x="940" y="468" width="410" height="40" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
