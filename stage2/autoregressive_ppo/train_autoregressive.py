@@ -59,7 +59,7 @@ LOG_DIR    = os.path.join(BASE_DIR, "logs",   "autoregressive_ppo")
 class AutoregressiveCurriculumWrapper(gym.Wrapper):
     """생존율 임계치 도달 시 시나리오를 순서대로 진급."""
 
-    def __init__(self, threshold: float = 0.8, window: int = 50,
+    def __init__(self, threshold: float = 0.8, window: int = 20,
                  k_max: int = K_MAX):
         self.current_scenario = 1
         self._k_max           = k_max
