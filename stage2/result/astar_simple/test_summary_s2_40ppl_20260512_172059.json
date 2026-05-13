@@ -1,0 +1,63 @@
+{
+  "model": "simple_astar_baseline",
+  "scenario": 2,
+  "scenario_name": "EXIT A 위협",
+  "n_agents": 40,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.8325,
+    "std": 0.1642,
+    "min": 0.4,
+    "max": 1.0,
+    "median": 0.9
+  },
+  "total_reward": {
+    "mean": 534.297,
+    "std": 365.8468,
+    "min": -454.35,
+    "max": 917.16,
+    "median": 671.475
+  },
+  "steps_taken": {
+    "mean": 105.3333,
+    "std": 23.1406,
+    "min": 78.0,
+    "max": 171.0,
+    "median": 96.0
+  },
+  "escaped": {
+    "mean": 33.3,
+    "std": 6.5684,
+    "min": 16.0,
+    "max": 40.0,
+    "median": 36.0
+  },
+  "escaped_A": {
+    "mean": 2.4667,
+    "std": 1.4545,
+    "min": 0.0,
+    "max": 5.0,
+    "median": 2.5
+  },
+  "escaped_B": {
+    "mean": 30.8333,
+    "std": 6.568,
+    "min": 12.0,
+    "max": 39.0,
+    "median": 33.0
+  },
+  "dead": {
+    "mean": 6.7,
+    "std": 6.5684,
+    "min": 0.0,
+    "max": 24.0,
+    "median": 4.0
+  },
+  "max_fire_cells": {
+    "mean": 347.7,
+    "std": 129.3634,
+    "min": 139.0,
+    "max": 656.0,
+    "median": 310.5
+  }
+}

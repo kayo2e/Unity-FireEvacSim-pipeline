@@ -1,0 +1,63 @@
+{
+  "model": "simple_astar_baseline",
+  "scenario": 3,
+  "scenario_name": "진입로 차단",
+  "n_agents": 40,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.815,
+    "std": 0.0723,
+    "min": 0.675,
+    "max": 0.925,
+    "median": 0.8
+  },
+  "total_reward": {
+    "mean": 488.0323,
+    "std": 160.3715,
+    "min": 165.9,
+    "max": 739.64,
+    "median": 457.195
+  },
+  "steps_taken": {
+    "mean": 84.0,
+    "std": 9.4692,
+    "min": 57.0,
+    "max": 105.0,
+    "median": 83.5
+  },
+  "escaped": {
+    "mean": 32.6,
+    "std": 2.8937,
+    "min": 27.0,
+    "max": 37.0,
+    "median": 32.0
+  },
+  "escaped_A": {
+    "mean": 3.6,
+    "std": 1.8726,
+    "min": 0.0,
+    "max": 8.0,
+    "median": 3.5
+  },
+  "escaped_B": {
+    "mean": 29.0,
+    "std": 3.1623,
+    "min": 23.0,
+    "max": 35.0,
+    "median": 29.0
+  },
+  "dead": {
+    "mean": 7.4,
+    "std": 2.8937,
+    "min": 3.0,
+    "max": 13.0,
+    "median": 8.0
+  },
+  "max_fire_cells": {
+    "mean": 597.4333,
+    "std": 71.781,
+    "min": 348.0,
+    "max": 764.0,
+    "median": 610.0
+  }
+}

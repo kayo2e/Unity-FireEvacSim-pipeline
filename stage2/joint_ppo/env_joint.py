@@ -19,6 +19,7 @@ env_joint.py — JointPPO용 환경 래퍼 (K_MAX 고정 슬롯 방식)
   글로벌   : F1~F15
 """
 
+import heapq
 import sys
 import os
 import numpy as np
@@ -96,9 +97,9 @@ class JointEvacEnv(gym.Env):
                 primary, fallback = dist_b, dist_a
 
             # 해당 출구가 막혀 있으면 반대쪽으로 fallback
-            if primary is not None and not np.isinf(primary[r, c]):
+            if primary is not None and primary[r, c] < 9999:
                 base_dirs[cell_idx] = self._dir_toward(r, c, primary)
-            elif fallback is not None:
+            elif fallback is not None and fallback[r, c] < 9999:
                 base_dirs[cell_idx] = self._dir_toward(r, c, fallback)
 
         _dirs_snap = base_dirs.copy()
@@ -148,46 +149,74 @@ class JointEvacEnv(gym.Env):
     # ──────────────────────────────────────────
     def _compute_path_slots(self) -> list:
         """
-        생존자 경로상 light_cell 목록.
-        각 생존자에서 BFS gradient descent로 경로 추적.
-        결과: [(cell_idx, (r,c)), ...] BFS 거리 오름차순, 중복 제거, 최대 k_max개.
+        생존자 경로상 light_cell 목록 — forward A* (화재 회피) 경로 기반.
+        결과: [(cell_idx, (r,c)), ...] 출구 거리 오름차순, 중복 제거, 최대 k_max개.
         """
         base = self._base
         if not base.people_data or base._bfs_dist is None:
             return []
 
-        cell_dist: dict = {}   # cell_idx → min BFS dist from any survivor
+        goals = {pos for pos in EXIT_A_POS + EXIT_B_POS
+                 if base.grid[pos[0], pos[1]] in WALKABLE
+                 and pos not in base.blocked_exits}
+
+        def _h(r: int, c: int) -> float:
+            return min(abs(r - gr) + abs(c - gc) for gr, gc in goals) if goals else 0.0
+
+        cell_dist: dict = {}
+
         for p in base.people_data:
-            cur = p["pos"]
-            visited = set()
-            for _ in range(100):
-                if cur in visited:
+            sr, sc    = p["pos"]
+            start     = (sr, sc)
+            visited:  set  = set()
+            parent:   dict = {}
+            g_map          = {start: 0}
+            heap           = [(_h(sr, sc), 0, sr, sc)]
+            goal_cell      = None
+
+            while heap:
+                f, g, r, c = heapq.heappop(heap)
+                if (r, c) in visited:
+                    continue
+                visited.add((r, c))
+                if (r, c) in goals:
+                    goal_cell = (r, c)
                     break
-                visited.add(cur)
+                for _, (dr, dc) in DELTA.items():
+                    nr, nc = r + dr, c + dc
+                    if not (0 <= nr < base.ROWS and 0 <= nc < base.COLS):
+                        continue
+                    if base.grid[nr, nc] not in WALKABLE:
+                        continue
+                    if base.fire_map[nr, nc] > 0:
+                        continue
+                    if (nr, nc) in visited:
+                        continue
+                    new_g = g + 1
+                    if new_g < g_map.get((nr, nc), float('inf')):
+                        g_map[(nr, nc)] = new_g
+                        parent[(nr, nc)] = (r, c)
+                        heapq.heappush(heap, (new_g + _h(nr, nc), new_g, nr, nc))
+
+            if goal_cell is None:
+                continue
+
+            # 경로 역추적 → light cell 수집
+            cur = goal_cell
+            while cur != start:
                 if cur in self.light_idx:
                     idx = self.light_idx[cur]
                     d   = float(base._bfs_dist[cur[0], cur[1]])
                     if idx not in cell_dist or d < cell_dist[idx]:
                         cell_dist[idx] = d
-                if cur in EXIT_A_POS or cur in EXIT_B_POS:
-                    break
-                cr, cc   = cur
-                cur_cost = float(base._bfs_dist[cr, cc])
-                best_next, best_cost = None, float('inf')
-                for _, (dr, dc) in DELTA.items():
-                    nr, nc = cr + dr, cc + dc
-                    if not (0 <= nr < base.ROWS and 0 <= nc < base.COLS):
-                        continue
-                    if base.grid[nr, nc] not in WALKABLE:
-                        continue
-                    cost = float(base._bfs_dist[nr, nc])
-                    if cost < best_cost:
-                        best_cost, best_next = cost, (nr, nc)
-                if best_next is None or best_cost >= cur_cost:
-                    break
-                cur = best_next
+                cur = parent[cur]
+            if start in self.light_idx:
+                idx = self.light_idx[start]
+                d   = float(base._bfs_dist[sr, sc])
+                if idx not in cell_dist or d < cell_dist[idx]:
+                    cell_dist[idx] = d
 
-        # BFS 거리 오름차순 정렬 후 k_max개 선택
+        # 출구 거리 오름차순 정렬 후 k_max개 선택
         sorted_cells = sorted(cell_dist.items(), key=lambda x: x[1])
         return [(idx, self.light_cells[idx])
                 for idx, _ in sorted_cells[:self.k_max]]

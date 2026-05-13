@@ -1,0 +1,63 @@
+{
+  "model": "bfs_hazard_baseline",
+  "scenario": 4,
+  "scenario_name": "양방향 동시 위협",
+  "n_agents": 40,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.6692,
+    "std": 0.3136,
+    "min": 0.1,
+    "max": 1.0,
+    "median": 0.7875
+  },
+  "total_reward": {
+    "mean": 160.005,
+    "std": 700.4965,
+    "min": -1131.78,
+    "max": 893.41,
+    "median": 424.34
+  },
+  "steps_taken": {
+    "mean": 92.0667,
+    "std": 21.5746,
+    "min": 57.0,
+    "max": 163.0,
+    "median": 92.0
+  },
+  "escaped": {
+    "mean": 26.7667,
+    "std": 12.5451,
+    "min": 4.0,
+    "max": 40.0,
+    "median": 31.5
+  },
+  "escaped_A": {
+    "mean": 13.7333,
+    "std": 12.8813,
+    "min": 0.0,
+    "max": 34.0,
+    "median": 5.0
+  },
+  "escaped_B": {
+    "mean": 13.0333,
+    "std": 12.7893,
+    "min": 2.0,
+    "max": 38.0,
+    "median": 7.0
+  },
+  "dead": {
+    "mean": 13.2333,
+    "std": 12.5451,
+    "min": 0.0,
+    "max": 36.0,
+    "median": 8.5
+  },
+  "max_fire_cells": {
+    "mean": 448.1333,
+    "std": 213.1193,
+    "min": 0.0,
+    "max": 742.0,
+    "median": 513.5
+  }
+}

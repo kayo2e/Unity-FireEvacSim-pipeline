@@ -391,7 +391,7 @@ class FireEvacEnv(gym.Env):
             cur_dist = float(self._bfs_dist[r, c])
             delta    = float(np.clip(p["prev_dist"] - cur_dist, -20.0, 20.0))
             urgency  = 1.0 + (self.step_count / self.cfg["max_steps"]) * 2.0
-            reward  += delta * 2.0 * urgency
+            reward  += delta * 0.2 * urgency
             p["prev_dist"] = cur_dist
             next_people.append(p)
 

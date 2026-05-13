@@ -1,0 +1,63 @@
+{
+  "model": "astar_rule_baseline",
+  "scenario": 1,
+  "scenario_name": "기본 탈출",
+  "n_agents": 20,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.9983,
+    "std": 0.009,
+    "min": 0.95,
+    "max": 1.0,
+    "median": 1.0
+  },
+  "total_reward": {
+    "mean": 926.6147,
+    "std": 60.7602,
+    "min": 798.53,
+    "max": 1055.7,
+    "median": 923.745
+  },
+  "steps_taken": {
+    "mean": 66.1333,
+    "std": 16.1157,
+    "min": 44.0,
+    "max": 104.0,
+    "median": 62.5
+  },
+  "escaped": {
+    "mean": 19.9667,
+    "std": 0.1795,
+    "min": 19.0,
+    "max": 20.0,
+    "median": 20.0
+  },
+  "escaped_A": {
+    "mean": 9.6333,
+    "std": 2.008,
+    "min": 7.0,
+    "max": 16.0,
+    "median": 10.0
+  },
+  "escaped_B": {
+    "mean": 10.3333,
+    "std": 1.9889,
+    "min": 4.0,
+    "max": 13.0,
+    "median": 10.0
+  },
+  "dead": {
+    "mean": 0.0333,
+    "std": 0.1795,
+    "min": 0.0,
+    "max": 1.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 13.0,
+    "std": 7.6898,
+    "min": 2.0,
+    "max": 34.0,
+    "median": 11.5
+  }
+}

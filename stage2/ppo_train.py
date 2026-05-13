@@ -9,8 +9,9 @@ ppo_train.py — 일반 PPO 학습/테스트
 Ablation 비교용: recurrent_ppo_train.py와 동일 조건으로 학습 후 성능 비교.
 
 실행:
-    python ppo_train.py --mode train --people 10 --steps 300000 --bc-steps 0
-    python ppo_train.py --mode test  --model-n 10 --all-scenarios --test-episodes 30
+    python ppo_train.py --mode train --auto-scenarios --steps 3000000
+    python ppo_train.py --mode train --people 20 40  --steps 3000000
+    python ppo_train.py --mode test  --all-scenarios --test-episodes 30
 """
 
 import sys
@@ -22,10 +23,13 @@ if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
+from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
+from stable_baselines3.common.vec_env import VecNormalize
 
 from env_core import FireEvacEnv, SCENARIO_CONFIGS, verify_connectivity
 from train_common import (BASE_DIR, EvacTrainCallback, make_vec_env,
-                          collect_astar_demos, pretrain_bc, test_fire_evac)
+                          collect_astar_demos, pretrain_bc, test_fire_evac,
+                          find_latest_checkpoint)
 
 MODEL_DIR  = os.path.join(BASE_DIR, "model",  "ppo")
 RESULT_DIR = os.path.join(BASE_DIR, "result", "ppo")
@@ -35,13 +39,16 @@ LOG_DIR    = os.path.join(BASE_DIR, "logs",   "ppo")
 # ══════════════════════════════════════════════
 # 학습
 # ══════════════════════════════════════════════
-def train(person_counts=(10,), total_timesteps=300_000,
-          n_envs=None, bc_demo_steps=3000, bc_s4_steps=2000, bc_epochs=10):
+def train(person_counts=None, total_timesteps=300_000,
+          n_envs=None, bc_demo_steps=0, bc_s4_steps=0, bc_epochs=10):
     import torch
+
+    if person_counts is None:
+        person_counts = sorted(set(c["n_agents"] for c in SCENARIO_CONFIGS.values()))
 
     n_cpu = __import__('multiprocessing').cpu_count()
     if n_envs is None:
-        n_envs = max(4, min(n_cpu, 16))
+        n_envs = max(32, min(n_cpu, 16))
 
     device  = "cuda" if torch.cuda.is_available() else "cpu"
     obs_dim = FireEvacEnv(scenario=1).observation_space.shape[0]
@@ -59,39 +66,66 @@ def train(person_counts=(10,), total_timesteps=300_000,
     print("=" * 62)
 
     for n in person_counts:
-        print(f"\n{'─'*62}\n인원수 {n}명 | 커리큘럼 학습 시작\n{'─'*62}")
+        ckpt_dir    = os.path.join(MODEL_DIR, "checkpoints")
+        ckpt_prefix = f"ckpt_{n}ppl"
+        ckpt_path, vnorm_ckpt, ckpt_steps = find_latest_checkpoint(ckpt_dir, ckpt_prefix)
+        os.makedirs(ckpt_dir, exist_ok=True)
 
-        vec_env  = make_vec_env(n_agents=n, n_envs=n_envs)
-        callback = EvacTrainCallback(log_interval=10_000)
+        if ckpt_path and ckpt_steps < total_timesteps:
+            print(f"\n{'─'*62}\n체크포인트 이어서 학습 "
+                  f"({n}명 | {ckpt_steps:,} → {total_timesteps:,} steps)\n{'─'*62}")
+            vec_env = make_vec_env(n_envs=n_envs, n_agents=n)
+            if os.path.exists(vnorm_ckpt):
+                vec_env = VecNormalize.load(vnorm_ckpt, vec_env.venv)
+                vec_env.training = True
+            model = PPO.load(ckpt_path, env=vec_env, device=device,
+                             tensorboard_log=LOG_DIR)
+            remaining = total_timesteps - ckpt_steps
+            reset_num = False
+        else:
+            print(f"\n{'─'*62}\n커리큘럼 학습 시작 "
+                  f"({n}명 기준, 이후 시나리오 인원수 자동 적용)\n{'─'*62}")
+            vec_env = make_vec_env(n_envs=n_envs, n_agents=n)
+            model = PPO(
+                "MlpPolicy", vec_env,
+                device          = device,
+                verbose         = 0,
+                n_steps         = 2048,
+                batch_size      = 256,
+                n_epochs        = 10,
+                gamma           = 0.99,
+                learning_rate   = 3e-4,
+                clip_range      = 0.2,
+                ent_coef        = 0.05,
+                max_grad_norm   = 0.5,
+                policy_kwargs   = dict(net_arch=[256, 256]),
+                tensorboard_log = LOG_DIR,
+            )
+            remaining = total_timesteps
+            reset_num = True
 
-        model = PPO(
-            "MlpPolicy", vec_env,
-            device          = device,
-            verbose         = 0,
-            n_steps         = 2048,
-            batch_size      = 256,
-            n_epochs        = 10,
-            gamma           = 0.99,
-            learning_rate   = 3e-4,
-            clip_range      = 0.2,
-            ent_coef        = 0.05,
-            max_grad_norm   = 0.5,
-            policy_kwargs   = dict(net_arch=[256, 256]),
-            tensorboard_log = LOG_DIR,
-        )
-
-        if bc_demo_steps > 0:
+        if bc_demo_steps > 0 and reset_num:
             print(f"\n[BC 사전학습] 데모 수집 중...")
             obs_demo, act_demo = collect_astar_demos(
                 n_agents=n, n_envs_demo=4,
                 n_steps=bc_demo_steps, s4_steps=bc_s4_steps)
             pretrain_bc(model, obs_demo, act_demo, n_epochs=bc_epochs)
 
+        ckpt_cb = CheckpointCallback(
+            save_freq         = max(500_000 // n_envs, 1),
+            save_path         = ckpt_dir,
+            name_prefix       = ckpt_prefix,
+            save_vecnormalize = True,
+            verbose           = 1,
+        )
+        callback = CallbackList([EvacTrainCallback(log_interval=10_000), ckpt_cb])
+
         model.learn(
-            total_timesteps = total_timesteps,
-            callback        = callback,
-            tb_log_name     = f"PPO_{n}ppl",
-            progress_bar    = True,
+            total_timesteps     = remaining,
+            callback            = callback,
+            tb_log_name         = f"PPO_{n}ppl",
+            progress_bar        = True,
+            reset_num_timesteps = reset_num,
         )
 
         save_path = os.path.join(MODEL_DIR, f"fire_evac_model_{n}ppl")
@@ -112,10 +146,13 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="PPO 화재대피 학습/테스트")
-    parser.add_argument("--mode",          choices=["train", "test", "check"], default="train")
-    parser.add_argument("--people",        type=int, nargs="+", default=[10])
+    parser.add_argument("--mode",           choices=["train", "test", "check"], default="train")
+    parser.add_argument("--auto-scenarios", action="store_true",
+                        help="SCENARIO_CONFIGS의 고유 n_agents로 자동 학습 (기본 동작)")
+    parser.add_argument("--people",        type=int, nargs="+", default=None,
+                        help="학습할 인원수 목록 (미지정 시 --auto-scenarios와 동일)")
     parser.add_argument("--steps",         type=int, default=300_000)
-    parser.add_argument("--n-envs",        type=int, default=None)
+    parser.add_argument("--n-envs",        type=int, default=16)
     parser.add_argument("--test-n",        type=int, default=10)
     parser.add_argument("--test-scenario", type=int, default=1)
     parser.add_argument("--test-episodes", type=int, default=30)
@@ -124,9 +161,9 @@ if __name__ == "__main__":
                         help="로드할 모델 인원수 (미지정 시 --test-n 사용)")
     parser.add_argument("--no-save",       action="store_true")
     parser.add_argument("--render",        action="store_true")
-    parser.add_argument("--bc-steps",      type=int, default=3000,
+    parser.add_argument("--bc-steps",      type=int, default=0,
                         help="BC 데모 수집 스텝 (0=비활성화)")
-    parser.add_argument("--bc-s4-steps",   type=int, default=2000)
+    parser.add_argument("--bc-s4-steps",   type=int, default=0)
     parser.add_argument("--bc-epochs",     type=int, default=10)
     args = parser.parse_args()
 
@@ -138,8 +175,14 @@ if __name__ == "__main__":
         print("환경 검증 완료!")
 
     elif args.mode == "train":
+        if args.people is not None:
+            counts = args.people
+        elif args.auto_scenarios:
+            counts = sorted(set(c["n_agents"] for c in SCENARIO_CONFIGS.values()))
+        else:
+            counts = None  # train()이 SCENARIO_CONFIGS에서 자동 추출
         train(
-            person_counts  = args.people,
+            person_counts  = counts,
             total_timesteps= args.steps,
             n_envs         = args.n_envs,
             bc_demo_steps  = args.bc_steps,

@@ -1,0 +1,63 @@
+{
+  "model": "bfs_hazard_baseline",
+  "scenario": 2,
+  "scenario_name": "EXIT A 위협",
+  "n_agents": 40,
+  "n_episodes": 100,
+  "survival_rate": {
+    "mean": 0.9155,
+    "std": 0.0506,
+    "min": 0.775,
+    "max": 1.0,
+    "median": 0.925
+  },
+  "total_reward": {
+    "mean": 729.4807,
+    "std": 112.0061,
+    "min": 422.87,
+    "max": 935.19,
+    "median": 723.445
+  },
+  "steps_taken": {
+    "mean": 103.23,
+    "std": 19.6178,
+    "min": 58.0,
+    "max": 153.0,
+    "median": 101.0
+  },
+  "escaped": {
+    "mean": 36.62,
+    "std": 2.0238,
+    "min": 31.0,
+    "max": 40.0,
+    "median": 37.0
+  },
+  "escaped_A": {
+    "mean": 3.23,
+    "std": 2.5371,
+    "min": 0.0,
+    "max": 12.0,
+    "median": 2.5
+  },
+  "escaped_B": {
+    "mean": 33.39,
+    "std": 3.0427,
+    "min": 25.0,
+    "max": 39.0,
+    "median": 34.0
+  },
+  "dead": {
+    "mean": 3.38,
+    "std": 2.0238,
+    "min": 0.0,
+    "max": 9.0,
+    "median": 3.0
+  },
+  "max_fire_cells": {
+    "mean": 331.46,
+    "std": 112.0464,
+    "min": 135.0,
+    "max": 650.0,
+    "median": 312.5
+  }
+}

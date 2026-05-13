@@ -7,6 +7,7 @@ ppo_train.py / recurrent_ppo_train.py 양쪽에서 import해 사용.
 
 import sys
 import os
+import glob
 import numpy as np
 import platform
 import gymnasium as gym
@@ -24,13 +25,40 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 # ══════════════════════════════════════════════
+# 체크포인트 유틸
+# ══════════════════════════════════════════════
+def find_latest_checkpoint(ckpt_dir: str, name_prefix: str):
+    """가장 최근 체크포인트를 반환. (zip경로, vecnorm경로, 저장스텝) or (None, None, 0)."""
+    if not os.path.isdir(ckpt_dir):
+        return None, None, 0
+
+    def _steps(f):
+        try:
+            return int(os.path.basename(f)
+                       .replace(f"{name_prefix}_", "", 1)
+                       .replace("_steps.zip", ""))
+        except ValueError:
+            return 0
+
+    files = glob.glob(os.path.join(ckpt_dir, f"{name_prefix}_*_steps.zip"))
+    if not files:
+        return None, None, 0
+
+    best  = max(files, key=_steps)
+    steps = _steps(best)
+    vecnorm = best.replace(".zip", "_vecnormalize.pkl")
+    return best, vecnorm, steps
+
+
+# ══════════════════════════════════════════════
 # 커리큘럼 래퍼
 # ══════════════════════════════════════════════
 class EvacCurriculumWrapper(gym.Wrapper):
-    def __init__(self, n_agents: int = 10, threshold: float = 0.85, window: int = 50):
+    def __init__(self, n_agents: int = None, threshold: float = 0.80, window: int = 50):
         self.current_scenario = 1
-        self.n_agents = n_agents
-        env = FireEvacEnv(scenario=1, n_agents=n_agents)
+        s1_n = SCENARIO_CONFIGS[1]["n_agents"] if n_agents is None else n_agents
+        self.n_agents = s1_n
+        env = FireEvacEnv(scenario=1, n_agents=s1_n)
         super().__init__(env)
         self.threshold = threshold
         self.window    = window
@@ -104,7 +132,7 @@ class EvacTrainCallback(BaseCallback):
 # ══════════════════════════════════════════════
 # 환경 팩토리
 # ══════════════════════════════════════════════
-def make_env(n_agents: int, seed: int):
+def make_env(seed: int, n_agents: int = None):
     def _init():
         env = EvacCurriculumWrapper(n_agents=n_agents)
         env.reset(seed=seed)
@@ -112,8 +140,8 @@ def make_env(n_agents: int, seed: int):
     return _init
 
 
-def make_vec_env(n_agents: int, n_envs: int):
-    env_fns = [make_env(n_agents=n_agents, seed=i) for i in range(n_envs)]
+def make_vec_env(n_envs: int, n_agents: int = None):
+    env_fns = [make_env(seed=i, n_agents=n_agents) for i in range(n_envs)]
     raw = (DummyVecEnv(env_fns) if platform.system() == "Windows"
            else SubprocVecEnv(env_fns))
     return VecNormalize(raw, norm_obs=True, norm_reward=False, clip_obs=10.0)
@@ -122,10 +150,9 @@ def make_vec_env(n_agents: int, n_envs: int):
 # ══════════════════════════════════════════════
 # BC 사전학습
 # ══════════════════════════════════════════════
-def collect_astar_demos(n_agents: int, n_envs_demo: int = 4,
+def collect_astar_demos(n_agents: int = None, n_envs_demo: int = 4,
                         n_steps: int = 3000, s4_steps: int = 2000) -> tuple:
-    env_fns    = [make_env(n_agents=n_agents, seed=200 + i)
-                  for i in range(n_envs_demo)]
+    env_fns    = [make_env(seed=200 + i) for i in range(n_envs_demo)]
     demo_raw   = DummyVecEnv(env_fns)
     demo_vnorm = VecNormalize(demo_raw, norm_obs=True, norm_reward=False, clip_obs=10.0)
 
