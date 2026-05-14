@@ -16,6 +16,8 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecNorm
 from stable_baselines3.common.callbacks import BaseCallback
 
 from env_core import FireEvacEnv, SCENARIO_CONFIGS
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'baselines'))
 from astar_baseline import rule_based_action
 
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
@@ -54,7 +56,7 @@ def find_latest_checkpoint(ckpt_dir: str, name_prefix: str):
 # 커리큘럼 래퍼
 # ══════════════════════════════════════════════
 class EvacCurriculumWrapper(gym.Wrapper):
-    def __init__(self, n_agents: int = None, threshold: float = 0.80, window: int = 50):
+    def __init__(self, n_agents: int = None, threshold: float = 0.90, window: int = 50):
         self.current_scenario = 1
         s1_n = SCENARIO_CONFIGS[1]["n_agents"] if n_agents is None else n_agents
         self.n_agents = s1_n
@@ -89,6 +91,79 @@ class EvacCurriculumWrapper(gym.Wrapper):
     @property
     def cfg(self):
         return self.env.cfg
+
+
+# ══════════════════════════════════════════════
+# 얼리스타핑 콜백
+# ══════════════════════════════════════════════
+class EarlyStoppingCallback(BaseCallback):
+    """
+    생존율(survival_rate) 기준 조기 종료.
+
+    - window 에피소드 이동평균이 best 대비 min_delta 이상 개선되지 않으면
+      patience 스텝 후 학습 중단.
+    - min_steps 이전에는 절대 중단하지 않음.
+    - save_best_path 지정 시 개선될 때마다 최적 모델 저장.
+    """
+
+    def __init__(
+        self,
+        patience: int   = 500_000,
+        min_delta: float = 0.005,
+        window: int      = 100,
+        min_steps: int   = 1_000_000,
+        save_best_path: str = None,
+        verbose: bool    = True,
+    ):
+        super().__init__()
+        self.patience       = patience
+        self.min_delta      = min_delta
+        self.window         = window
+        self.min_steps      = min_steps
+        self.save_best_path = save_best_path
+        self.verbose        = verbose
+
+        self._survival_buf: list    = []
+        self._best_avg: float       = 0.0
+        self._no_improve_since: int = 0
+
+    def _on_step(self) -> bool:
+        for info in self.locals.get("infos", []):
+            if "survival_rate" in info:
+                self._survival_buf.append(info["survival_rate"])
+
+        if len(self._survival_buf) < self.window:
+            return True
+
+        if len(self._survival_buf) > self.window:
+            self._survival_buf = self._survival_buf[-self.window:]
+
+        avg = sum(self._survival_buf) / len(self._survival_buf)
+
+        if avg >= self._best_avg + self.min_delta:
+            if self.verbose:
+                print(
+                    f"\n  [EarlyStopping] 개선 "
+                    f"{self._best_avg:.1%} → {avg:.1%} "
+                    f"| step {self.num_timesteps:,}"
+                )
+            self._best_avg          = avg
+            self._no_improve_since  = self.num_timesteps
+            if self.save_best_path and self.model is not None:
+                self.model.save(self.save_best_path)
+        elif self.num_timesteps >= self.min_steps:
+            steps_since = self.num_timesteps - self._no_improve_since
+            if steps_since >= self.patience:
+                if self.verbose:
+                    print(
+                        f"\n[EarlyStopping] 조기 종료 | "
+                        f"step {self.num_timesteps:,} | "
+                        f"best {self._best_avg:.1%} | "
+                        f"{steps_since:,} steps 무개선"
+                    )
+                return False
+
+        return True
 
 
 # ══════════════════════════════════════════════
@@ -239,8 +314,13 @@ def test_fire_evac(ModelCls, model_dir: str, result_dir: str,
     import json
     from datetime import datetime
 
-    model_n      = model_n if model_n is not None else n_agents
-    model_path   = os.path.join(model_dir, f"fire_evac_model_{model_n}ppl")
+    # 단일 파일 우선 로드, 없으면 ppl-suffix 파일로 폴백
+    single_path = os.path.join(model_dir, "fire_evac_model")
+    if os.path.exists(single_path + ".zip"):
+        model_path = single_path
+    else:
+        fallback_n = model_n if model_n is not None else n_agents
+        model_path = os.path.join(model_dir, f"fire_evac_model_{fallback_n}ppl")
     vecnorm_path = model_path + "_vecnorm.pkl"
 
     print(f"\n모델 로드: {model_path}.zip  (테스트 인원: {n_agents}명)")

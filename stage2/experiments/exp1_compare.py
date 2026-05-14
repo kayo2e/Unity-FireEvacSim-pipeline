@@ -2,11 +2,13 @@
 exp1_compare.py — 실험 ①: A* 베이스라인 vs PPO 직접 비교
 ==========================================================
 4개 시나리오 전체에서 생존율 / 탈출시간 / 출구분배 / 공황지수 비교.
+--n-agents 로 OOD 밀도 테스트 가능 (예: 60명, 학습 최대치 초과).
 
 실행:
     cd stage2
     python experiments/exp1_compare.py
     python experiments/exp1_compare.py --episodes 50
+    python experiments/exp1_compare.py --scenarios 4 --n-agents 60   # S5_dense OOD
     python experiments/exp1_compare.py --model-dir model/recurrent_ppo --model-cls recurrent
 """
 
@@ -14,12 +16,13 @@ import sys, os, json, csv, argparse
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'baselines'))
 
 import numpy as np
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from env_core import FireEvacEnv, SCENARIO_CONFIGS
-from astar_baseline import rule_based_action
+from astar_real import astar_action
 
 RESULT_BASE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                            "result", "exp1_compare")
@@ -35,7 +38,7 @@ def run_astar(scenario: int, n_agents: int, n_episodes: int) -> list:
         total_r = 0.0
         info = {}
         for _ in range(cfg["max_steps"]):
-            action = rule_based_action(obs)
+            action = astar_action(env)
             obs, r, term, trunc, info = env.step(action)
             total_r += r
             if term or trunc:
@@ -135,15 +138,26 @@ def _load_model_cls(name: str):
 
 
 def _find_model(model_dir: str, n_agents: int):
-    """n_agents에 가장 가까운 학습된 모델 파일 탐색."""
+    """n_agents에 가장 가까운 호환 모델 탐색. 구버전 obs 차원 불일치 모델 자동 제외."""
+    from stable_baselines3 import PPO as _PPO
+    if not os.path.isdir(model_dir):
+        return None, None, None
     candidates = []
-    for fname in os.listdir(model_dir) if os.path.isdir(model_dir) else []:
-        if fname.endswith(".zip") and "ppl" in fname:
-            try:
-                n = int(fname.replace("fire_evac_model_", "").replace("ppl.zip", ""))
+    for fname in os.listdir(model_dir):
+        if not (fname.endswith(".zip") and "ppl" in fname and "best" not in fname):
+            continue
+        try:
+            n = int(fname.replace("fire_evac_model_", "").replace("ppl.zip", ""))
+        except ValueError:
+            continue
+        path = os.path.join(model_dir, f"fire_evac_model_{n}ppl")
+        # obs 차원 호환 확인 (구버전 모델 제외)
+        try:
+            m = _PPO.load(path)
+            if m.observation_space.shape == (15,):
                 candidates.append(n)
-            except ValueError:
-                pass
+        except Exception:
+            pass
     if not candidates:
         return None, None, None
     best = min(candidates, key=lambda x: abs(x - n_agents))
@@ -208,6 +222,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="실험①: A* vs PPO 직접 비교")
     parser.add_argument("--episodes",   type=int, default=30)
     parser.add_argument("--scenarios",  type=int, nargs="+", default=[1, 2, 3, 4])
+    parser.add_argument("--n-agents",   type=int, default=None,
+                        help="인원수 강제 지정 (OOD 밀도 테스트용, 예: --n-agents 60)")
     parser.add_argument("--model-dir",  type=str,
                         default=os.path.join(os.path.dirname(os.path.dirname(
                             os.path.abspath(__file__))), "model", "ppo"))
@@ -218,9 +234,12 @@ if __name__ == "__main__":
 
     all_astar, all_ppo = {}, {}
     for sc in args.scenarios:
-        n = SCENARIO_CONFIGS[sc]["n_agents"]
+        default_n = SCENARIO_CONFIGS[sc]["n_agents"]
+        n = args.n_agents if args.n_agents is not None else default_n
+        ood_tag = f" ★OOD({n}명, 학습:{default_n}명)" if n != default_n else f"  ({n}명)"
+
         print(f"\n{'━'*66}")
-        print(f"  시나리오 {sc}: {SCENARIO_CONFIGS[sc]['name']}  ({n}명)")
+        print(f"  시나리오 {sc}: {SCENARIO_CONFIGS[sc]['name']}{ood_tag}")
         print(f"{'━'*66}")
 
         print("\n[A* 베이스라인]")
@@ -239,15 +258,19 @@ if __name__ == "__main__":
     print(f"\n{'═'*66}")
     print("  전체 시나리오 요약  (생존율 mean ± std)")
     print(f"{'─'*66}")
-    print(f"  {'시나리오':<16} {'A* 베이스라인':>14}  {'PPO':>14}  {'차이':>8}")
+    print(f"  {'시나리오':<18} {'A* 베이스라인':>14}  {'PPO':>14}  {'차이':>8}")
     print(f"{'─'*66}")
     for sc in args.scenarios:
+        default_n = SCENARIO_CONFIGS[sc]["n_agents"]
+        n = args.n_agents if args.n_agents is not None else default_n
+        ood = " [OOD]" if n != default_n else ""
         a = np.array([r["survival_rate"] for r in all_astar[sc]])
         p_recs = all_ppo.get(sc, [])
         p = np.array([r["survival_rate"] for r in p_recs]) if p_recs else np.array([])
-        name = SCENARIO_CONFIGS[sc]["name"]
+        name = SCENARIO_CONFIGS[sc]["name"] + ood
         a_str = f"{a.mean():.1%}±{a.std():.1%}"
         p_str = f"{p.mean():.1%}±{p.std():.1%}" if len(p) > 0 else "N/A"
-        diff  = f"+{p.mean()-a.mean():.1%}" if len(p) > 0 else "N/A"
-        print(f"  S{sc} {name:<14} {a_str:>14}  {p_str:>14}  {diff:>8}")
+        diff_val = p.mean() - a.mean() if len(p) > 0 else None
+        diff  = (f"+{diff_val:.1%}" if diff_val >= 0 else f"{diff_val:.1%}") if diff_val is not None else "N/A"
+        print(f"  S{sc} {name:<16} {a_str:>14}  {p_str:>14}  {diff:>8}")
     print(f"{'═'*66}")

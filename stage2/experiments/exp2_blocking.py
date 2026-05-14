@@ -20,12 +20,13 @@ import sys, os, json, csv, argparse
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'baselines'))
 
 import numpy as np
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from env_core import FireEvacEnv, SCENARIO_CONFIGS, EXIT_A_POS, EXIT_B_POS, WALL
-from astar_baseline import rule_based_action
+from astar_real import astar_action
 
 RESULT_BASE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                            "result", "exp2_blocking")
@@ -86,7 +87,7 @@ def run_astar_blocking(scenario, n_agents, n_episodes, block_exit, block_at_step
         total_r = 0.0
         info = {}
         for _ in range(cfg["max_steps"]):
-            action = rule_based_action(obs)
+            action = astar_action(env)
             obs, r, term, trunc, info = env.step(action)
             total_r += r
             if term or trunc:
