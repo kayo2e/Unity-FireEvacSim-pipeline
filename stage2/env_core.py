@@ -459,6 +459,12 @@ class FireEvacEnv(gym.Env):
             if self.escaped_A > 0 and self.escaped_B > 0:
                 reward += 15.0
 
+            # 생존율 90% 미달 시 shortfall에 비례하는 추가 패널티
+            survival_rate = self.escaped / max(self.n_agents, 1)
+            if survival_rate < 0.9:
+                shortfall = 0.9 - survival_rate
+                reward   -= shortfall * self.n_agents * 20.0
+
         return self._get_obs(), reward, terminated, truncated, self._get_info()
 
     # ──────────────────────────────────────────

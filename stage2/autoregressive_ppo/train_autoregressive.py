@@ -59,12 +59,13 @@ LOG_DIR    = os.path.join(BASE_DIR, "logs",   "autoregressive_ppo")
 class AutoregressiveCurriculumWrapper(gym.Wrapper):
     """생존율 임계치 도달 시 시나리오를 순서대로 진급."""
 
-    def __init__(self, threshold: float = 0.8, window: int = 20,
-                 k_max: int = K_MAX):
-        self.current_scenario = 1
+    def __init__(self, threshold: float = 0.8, window: int = 10,
+                 k_max: int = K_MAX, start_scenario: int = 1):
+        self.current_scenario = max(1, min(start_scenario, len(SCENARIO_CONFIGS)))
         self._k_max           = k_max
-        s1_n  = SCENARIO_CONFIGS[1]["n_agents"]
-        env   = AutoregressiveEvacEnv(scenario=1, n_agents=s1_n, k_max=k_max)
+        cfg_n = SCENARIO_CONFIGS[self.current_scenario]["n_agents"]
+        env   = AutoregressiveEvacEnv(scenario=self.current_scenario,
+                                      n_agents=cfg_n, k_max=k_max)
         super().__init__(env)
         self.threshold = threshold
         self.window    = window
@@ -144,7 +145,7 @@ class AutoregressiveCallback(BaseCallback):
 # ══════════════════════════════════════════════
 def train(person_counts=None, total_timesteps: int = 3_000_000,
           n_envs: int = 16, lstm_hidden_size: int = 256,
-          k_max: int = K_MAX):
+          k_max: int = K_MAX, start_scenario: int = 1):
     if person_counts is None:
         person_counts = sorted(set(c["n_agents"] for c in SCENARIO_CONFIGS.values()))
 
@@ -162,9 +163,9 @@ def train(person_counts=None, total_timesteps: int = 3_000_000,
     print(f"모델 저장: {MODEL_DIR}")
     print("=" * 62)
 
-    def _make_env(seed: int, _k=k_max):
+    def _make_env(seed: int, _k=k_max, _s=start_scenario):
         def _init():
-            env = AutoregressiveCurriculumWrapper(k_max=_k)
+            env = AutoregressiveCurriculumWrapper(k_max=_k, start_scenario=_s)
             env.reset(seed=seed)
             return env
         return _init
@@ -191,9 +192,9 @@ def train(person_counts=None, total_timesteps: int = 3_000_000,
             remaining = total_timesteps - ckpt_steps
             reset_num = False
         else:
-            s1_n = SCENARIO_CONFIGS[1]["n_agents"]
+            start_n = SCENARIO_CONFIGS[start_scenario]["n_agents"]
             print(f"\n{'─'*62}\n커리큘럼 학습 시작 "
-                  f"(S1 {s1_n}명 → 이후 시나리오별 인원수 자동 적용, 모델명: {n}ppl)\n{'─'*62}")
+                  f"(S{start_scenario} {start_n}명부터 → 이후 시나리오별 인원수 자동 적용, 모델명: {n}ppl)\n{'─'*62}")
             vec_env = VecNormalize(raw_vec, norm_obs=True, norm_reward=False,
                                    clip_obs=10.0)
             model = RecurrentPPO(
@@ -400,8 +401,10 @@ if __name__ == "__main__":
     parser.add_argument("--test-episodes", type=int, default=30)
     parser.add_argument("--all-scenarios", action="store_true")
     parser.add_argument("--model-n",       type=int, default=None)
-    parser.add_argument("--no-save",       action="store_true")
-    parser.add_argument("--render",        action="store_true")
+    parser.add_argument("--no-save",        action="store_true")
+    parser.add_argument("--render",         action="store_true")
+    parser.add_argument("--start-scenario", type=int, default=1, choices=[1, 2, 3, 4],
+                        help="커리큘럼 시작 시나리오 (기본 1). 체크포인트 이어받아 S4만 학습할 때 4 지정.")
     args = parser.parse_args()
 
     if args.mode == "train":
@@ -417,6 +420,7 @@ if __name__ == "__main__":
             n_envs          = args.n_envs,
             lstm_hidden_size= args.lstm_hidden,
             k_max           = args.k_max,
+            start_scenario  = args.start_scenario,
         )
 
     elif args.mode == "test":
