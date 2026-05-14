@@ -1,0 +1,49 @@
+{
+  "model": "simple_astar_baseline",
+  "scenario": 4,
+  "scenario_name": "양방향 동시 위협",
+  "n_agents": 40,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.6358,
+    "std": 0.3561,
+    "min": 0.075,
+    "max": 1.0,
+    "median": 0.8375
+  },
+  "total_reward": {
+    "mean": -152.9133,
+    "std": 1057.0149,
+    "min": -1847.17,
+    "max": 918.69,
+    "median": 476.515
+  },
+  "steps_taken": {
+    "mean": 87.6333,
+    "std": 14.6276,
+    "min": 65.0,
+    "max": 121.0,
+    "median": 85.5
+  },
+  "escaped": {
+    "mean": 25.4333,
+    "std": 14.2447,
+    "min": 3.0,
+    "max": 40.0,
+    "median": 33.5
+  },
+  "dead": {
+    "mean": 14.5667,
+    "std": 14.2447,
+    "min": 0.0,
+    "max": 37.0,
+    "median": 6.5
+  },
+  "max_fire_cells": {
+    "mean": 377.3667,
+    "std": 230.1021,
+    "min": 0.0,
+    "max": 612.0,
+    "median": 476.0
+  }
+}

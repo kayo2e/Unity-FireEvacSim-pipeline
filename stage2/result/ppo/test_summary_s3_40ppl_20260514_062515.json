@@ -1,0 +1,70 @@
+{
+  "model": "/workspace/gy/Unity-FireEvacSim-pipeline/stage2/model/ppo/fire_evac_model_40ppl",
+  "scenario": 3,
+  "scenario_name": "진입로 차단",
+  "n_agents": 40,
+  "n_episodes": 30,
+  "survival_rate": {
+    "mean": 0.8083,
+    "std": 0.0869,
+    "min": 0.625,
+    "max": 0.975,
+    "median": 0.8125
+  },
+  "total_reward": {
+    "mean": 388.5467,
+    "std": 257.7091,
+    "min": -180.5,
+    "max": 830.25,
+    "median": 393.42
+  },
+  "steps_taken": {
+    "mean": 81.5333,
+    "std": 8.9171,
+    "min": 66.0,
+    "max": 100.0,
+    "median": 84.5
+  },
+  "escaped": {
+    "mean": 32.3333,
+    "std": 3.4769,
+    "min": 25.0,
+    "max": 39.0,
+    "median": 32.5
+  },
+  "escaped_A": {
+    "mean": 3.8333,
+    "std": 1.655,
+    "min": 0.0,
+    "max": 7.0,
+    "median": 4.0
+  },
+  "escaped_B": {
+    "mean": 28.5,
+    "std": 3.7305,
+    "min": 22.0,
+    "max": 36.0,
+    "median": 29.0
+  },
+  "dead": {
+    "mean": 7.6667,
+    "std": 3.4769,
+    "min": 1.0,
+    "max": 15.0,
+    "median": 7.5
+  },
+  "mean_panic": {
+    "mean": 0.0,
+    "std": 0.0,
+    "min": 0.0,
+    "max": 0.0,
+    "median": 0.0
+  },
+  "max_fire_cells": {
+    "mean": 586.7,
+    "std": 75.2025,
+    "min": 394.0,
+    "max": 720.0,
+    "median": 592.5
+  }
+}
