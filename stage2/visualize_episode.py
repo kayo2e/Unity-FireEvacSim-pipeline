@@ -21,6 +21,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import ListedColormap
+from matplotlib import font_manager
+
+_NANUM = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
+if os.path.exists(_NANUM):
+    font_manager.fontManager.addfont(_NANUM)
+    matplotlib.rcParams["font.family"] = font_manager.FontProperties(fname=_NANUM).get_name()
+matplotlib.rcParams["axes.unicode_minus"] = False
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

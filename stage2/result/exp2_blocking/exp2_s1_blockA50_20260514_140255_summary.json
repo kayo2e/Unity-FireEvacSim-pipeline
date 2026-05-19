@@ -1,0 +1,57 @@
+{
+  "scenario": 1,
+  "block_exit": "A",
+  "block_at_step": 50,
+  "astar": {
+    "survival_rate": {
+      "mean": 0.9967,
+      "std": 0.0125,
+      "min": 0.95,
+      "max": 1.0
+    },
+    "escaped_A": {
+      "mean": 8.2333,
+      "std": 3.9974,
+      "min": 1.0,
+      "max": 15.0
+    },
+    "escaped_B": {
+      "mean": 11.7,
+      "std": 3.9509,
+      "min": 5.0,
+      "max": 19.0
+    },
+    "dead": {
+      "mean": 0.0667,
+      "std": 0.2494,
+      "min": 0.0,
+      "max": 1.0
+    }
+  },
+  "ppo": {
+    "survival_rate": {
+      "mean": 0.9933,
+      "std": 0.0213,
+      "min": 0.9,
+      "max": 1.0
+    },
+    "escaped_A": {
+      "mean": 8.5667,
+      "std": 1.9439,
+      "min": 5.0,
+      "max": 13.0
+    },
+    "escaped_B": {
+      "mean": 11.3,
+      "std": 1.9858,
+      "min": 7.0,
+      "max": 15.0
+    },
+    "dead": {
+      "mean": 0.1,
+      "std": 0.3958,
+      "min": 0.0,
+      "max": 2.0
+    }
+  }
+}

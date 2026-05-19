@@ -24,6 +24,13 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from matplotlib import font_manager
+
+_NANUM = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
+if os.path.exists(_NANUM):
+    font_manager.fontManager.addfont(_NANUM)
+    matplotlib.rcParams["font.family"] = font_manager.FontProperties(fname=_NANUM).get_name()
+matplotlib.rcParams["axes.unicode_minus"] = False
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -411,16 +418,16 @@ def run_comparison(
 # ── 진입점 ────────────────────────────────────────────
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="모델별 경로 유도 비교 시각화")
-    parser.add_argument("--scenario",      type=int, default=4,   choices=[1, 2, 3, 4])
+    parser.add_argument("--scenario",      type=int, default=4,   choices=[1, 2, 3, 4, 5, 6])
     parser.add_argument("--n",             type=int, default=None, help="인원수")
     parser.add_argument("--seed",          type=int, default=125,  help="고정 시드 (기본=125)")
     parser.add_argument("--every",         type=int, default=1,    help="N스텝마다 프레임 저장")
     parser.add_argument("--no-gif",        action="store_true",    help="GIF 생성 안 함")
     parser.add_argument("--ppo-path",      type=str, default=None, help="PPO .zip 경로")
-    parser.add_argument("--all-scenarios", action="store_true",    help="시나리오 1~4 전부")
+    parser.add_argument("--all-scenarios", action="store_true",    help="시나리오 1~4,6 전부")
     args = parser.parse_args()
 
-    scenarios = [1, 2, 3, 4] if args.all_scenarios else [args.scenario]
+    scenarios = [1, 2, 3, 4, 6] if args.all_scenarios else [args.scenario]
 
     for sc in scenarios:
         run_comparison(
