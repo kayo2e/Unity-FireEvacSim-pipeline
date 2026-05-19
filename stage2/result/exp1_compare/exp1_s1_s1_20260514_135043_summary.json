@@ -1,0 +1,68 @@
+{
+  "scenario": 1,
+  "n_episodes": 30,
+  "astar": {
+    "survival_rate": {
+      "mean": 1.0,
+      "std": 0.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "escaped_A": {
+      "mean": 12.6667,
+      "std": 6.0129,
+      "min": 2.0,
+      "max": 20.0
+    },
+    "escaped_B": {
+      "mean": 7.3333,
+      "std": 6.0129,
+      "min": 0.0,
+      "max": 18.0
+    },
+    "dead": {
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "steps_taken": {
+      "mean": 88.8333,
+      "std": 18.1164,
+      "min": 61.0,
+      "max": 137.0
+    }
+  },
+  "ppo": {
+    "survival_rate": {
+      "mean": 1.0,
+      "std": 0.0,
+      "min": 1.0,
+      "max": 1.0
+    },
+    "escaped_A": {
+      "mean": 10.6667,
+      "std": 1.9032,
+      "min": 7.0,
+      "max": 15.0
+    },
+    "escaped_B": {
+      "mean": 9.3333,
+      "std": 1.9032,
+      "min": 5.0,
+      "max": 13.0
+    },
+    "dead": {
+      "mean": 0.0,
+      "std": 0.0,
+      "min": 0.0,
+      "max": 0.0
+    },
+    "steps_taken": {
+      "mean": 67.7,
+      "std": 13.1609,
+      "min": 39.0,
+      "max": 100.0
+    }
+  }
+}

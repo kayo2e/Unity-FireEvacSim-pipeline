@@ -197,6 +197,40 @@ SCENARIO_CONFIGS = {
         "max_steps":       300,
         "n_agents":        40,
     },
+    # S5: EXIT B 단독 위협 — S2의 거울 시나리오. EXIT B(2셀) 하단 발화.
+    # S2는 EXIT A(4셀) 위협 → S5는 더 좁은 EXIT B 위협.
+    # A*: F2 급락 → 전원 EXIT A(4셀) 쏠림 → 혼잡 누적.
+    # PPO: F8(EXIT A 혼잡) + F1/F2 동시 고려 → 분산 최적화 예상.
+    5: {
+        "name":            "EXIT B 위협",
+        "fire_count":      (1, 2),
+        "spread_prob":     0.12,
+        "smoke_radius":    2,
+        "exit_block_prob": 0.0,
+        "collapse_prob":   0.0,
+        "fire_fixed":      None,
+        "fire_zone":       _EXIT_B_LOWER,
+        "fire_zone_multi": None,
+        "max_steps":       280,
+        "n_agents":        40,
+    },
+    # S6: 중앙 경로 차단 — 양 출구 사이 분기점(_CENTER_CORRIDOR) 발화.
+    # 학습 시나리오에 없던 화재 위치: 출구 근처가 아닌 경로 중간.
+    # 에이전트가 경로 선택 전 이미 전진 방향이 차단됨.
+    # PPO: F12/F13(화재 무게중심) + F10/F11(평균 거리) 조합으로 조기 우회 예측.
+    6: {
+        "name":            "중앙 경로 차단",
+        "fire_count":      (1, 2),
+        "spread_prob":     0.15,
+        "smoke_radius":    3,
+        "exit_block_prob": 0.0,
+        "collapse_prob":   0.0,
+        "fire_fixed":      None,
+        "fire_zone":       _CENTER_CORRIDOR,
+        "fire_zone_multi": None,
+        "max_steps":       300,
+        "n_agents":        40,
+    },
 }
 
 
@@ -262,6 +296,9 @@ class FireEvacEnv(gym.Env):
         super().reset(seed=seed)
         if seed is not None:
             random.seed(seed); np.random.seed(seed)
+            self._fire_rng = random.Random(seed + 9999)  # 에이전트 행동과 독립된 화재 전용 RNG
+        elif not hasattr(self, "_fire_rng"):
+            self._fire_rng = random.Random()
 
         cfg = self.cfg
         self.grid = BASE_GRID.copy()
@@ -573,7 +610,7 @@ class FireEvacEnv(gym.Env):
                         nr, nc = r + dr, c + dc
                         if (0 <= nr < self.ROWS and 0 <= nc < self.COLS
                                 and self.grid[nr, nc] in WALKABLE
-                                and random.random() < prob):
+                                and self._fire_rng.random() < prob):
                             nf[nr, nc] = 1.0
         self.fire_map = nf
 
