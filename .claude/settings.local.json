@@ -28,7 +28,21 @@
       "Bash(python train.py --mode test --test-n 50 --test-scenario 3 --test-episodes 1000)",
       "Bash(python train.py --mode test --test-n 50 --test-scenario 4 --test-episodes 1000)",
       "Bash(python astar_baseline.py --all-scenarios --n 10 --episodes 1000)",
-      "Bash(python astar_baseline.py --all-scenarios --n 30 --episodes 1000)"
+      "Bash(python astar_baseline.py --all-scenarios --n 30 --episodes 1000)",
+      "Bash(rm -rf /workspace/gy/Unity-FireEvacSim-pipeline/stage2/autoregressive_ppo)",
+      "Bash(rm -rf /workspace/gy/Unity-FireEvacSim-pipeline/stage2/recurrent_ppo)",
+      "Bash(rm -rf /workspace/gy/Unity-FireEvacSim-pipeline/stage2/archive)",
+      "Bash(rm -f /workspace/gy/Unity-FireEvacSim-pipeline/stage2/test_old_3606_model.py)",
+      "Bash(rm -f /workspace/gy/Unity-FireEvacSim-pipeline/stage2/plot_obs_comparison.py)",
+      "Bash(rm -rf /workspace/gy/Unity-FireEvacSim-pipeline/stage2/result/test-ppo_10ppl7)",
+      "Bash(rm -rf /workspace/gy/Unity-FireEvacSim-pipeline/stage2/result/test_ppo_10ppl8)",
+      "Bash(rm -rf /workspace/gy/Unity-FireEvacSim-pipeline/stage2/result/test_ppo_10ppl9)",
+      "Bash(rm -rf /workspace/gy/Unity-FireEvacSim-pipeline/stage2/result/test_ppo_10ppl10)",
+      "Bash(rm -rf /workspace/gy/Unity-FireEvacSim-pipeline/stage2/result/test_ppo_10ppl11)",
+      "Bash(rm -rf /workspace/gy/Unity-FireEvacSim-pipeline/stage2/result/visualize/s1_bfs_ep1)",
+      "Bash(rm -rf /workspace/gy/Unity-FireEvacSim-pipeline/stage2/result/visualize/s2_bfs_ep1)",
+      "Bash(rm -rf /workspace/gy/Unity-FireEvacSim-pipeline/stage2/result/visualize/s3_bfs_ep1)",
+      "Bash(rm -rf /workspace/gy/Unity-FireEvacSim-pipeline/stage2/result/visualize/s4_bfs_ep1)"
     ]
   }
 }
