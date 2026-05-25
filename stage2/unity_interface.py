@@ -117,6 +117,16 @@ class FireEvacServer:
     def handle_client(self, client_socket, addr):
         print(f"\n✅ 클라이언트 연결: {addr}")
         
+        # ── 녹화 파일 준비 ──
+        rec_dir = os.path.join(os.path.dirname(__file__), "recordings")
+        os.makedirs(rec_dir, exist_ok=True)
+        rec_path = os.path.join(
+            rec_dir,
+            f"recording_s{self.scenario}_seed{self.env_manager.demo_seed}.jsonl"
+        )
+        rec_file = open(rec_path, "w", encoding="utf-8")
+        print(f"🎬 녹화 시작: {rec_path}")
+
         try:
             print("🔄 환경 초기화 중 (새 에피소드 준비)...")
             self.env_manager.reset(seed=self.env_manager.demo_seed)
@@ -129,6 +139,7 @@ class FireEvacServer:
                 "grid_info": self.env_manager.get_grid_info(),
                 "initial_snapshot": self.env_manager.get_snapshot()
             }
+            rec_file.write(json.dumps(init_msg, default=str) + "\n")
             self.send_message(client_socket, init_msg)
 
             print("\n🎯 [에피소드 시작] 유니티의 진행 요청을 대기합니다.")
@@ -191,22 +202,24 @@ class FireEvacServer:
                     "info": info,
                     "step": self.env_manager.step_count
                 }
+                rec_file.write(json.dumps(response, default=str) + "\n")
                 self.send_message(client_socket, response)
 
-                # 파이썬 강제 대기(time.sleep) 제거: 유니티의 request를 받는 즉시 다음 스텝 계산
-                
                 if terminated or truncated:
                     print(f"\n🏁 에피소드 종료 | 생존율: {info['survival_rate']:.1%}")
                     end_msg = {
                         "message_type": "episode_end",
                         "final_info": info
                     }
+                    rec_file.write(json.dumps(end_msg, default=str) + "\n")
                     self.send_message(client_socket, end_msg)
+                    print(f"💾 녹화 저장 완료: {rec_path}")
                     break
-        
+
         except Exception as e:
             print(f"❌ 클라이언트 에러: {e}")
         finally:
+            rec_file.close()
             client_socket.close()
     
     def _get_directions_for_arrows(self):
