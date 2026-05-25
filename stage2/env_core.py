@@ -34,8 +34,8 @@ DELTA = {N: (-1, 0), S: (1, 0), E: (0, 1), W: (0, -1)}
 # ── 병목(Bottleneck) 파라미터 ──────────────────────────────────────────
 # Henderson(1974): 보행자 출구 처리율 ≈ 1~2명/스텝
 # Fruin(1971): 복도 점유 밀도가 4명/m² 초과 시 이동 속도 급감
-EXIT_CAPACITY = 1   # 출구 셀당 스텝당 최대 탈출 인원 (셀당 1명 → 명수별 병목 차이 강화)
-CELL_CAPACITY = 1   # 복도 셀당 최대 동시 점유 인원 (셀당 1명 → 실제 혼잡 발생)
+EXIT_CAPACITY = 2   # 데모용: 2로 완화 (원래 1, 학습은 1로 진행)
+CELL_CAPACITY = 2   # 데모용: 2로 완화 (원래 1, 학습은 1로 진행)
 QUEUE_RADIUS  = 4   # 출구 혼잡도 피처 측정 반경 (BFS 거리 기준)
 
 # ── 군중 물리 파라미터 ─────────────────────────────────────────────────
@@ -358,13 +358,19 @@ class FireEvacEnv(gym.Env):
         starts = random.sample(safe, min(self.n_agents, len(safe)))
         self.people_data = [
             {
+                "id":        i,
                 "pos":       pos,
                 "speed":     round(random.uniform(0.5, 1.2), 2),
                 "accum":     0.0,
                 "prev_dist": float(self._bfs_dist[pos[0], pos[1]]),
-                "panic":     0.0,  # Helbing(2000): 초기 공황 없음
+                "panic":     0.0,
+                "move_dr":      0,
+                "move_dc":      0,
+                "prev_move_dr": 0,
+                "prev_move_dc": 0,
+                "was_blocked":  False,
             }
-            for pos in starts
+            for i, pos in enumerate(starts)
         ]
 
         self.light_dirs    = self._compute_dirs_for_strategy(10.0, 10.0, 2.0)
@@ -402,7 +408,7 @@ class FireEvacEnv(gym.Env):
         for p in self.people_data:
             # ── 군중 물리 업데이트 ──────────────────────────────────
             self._update_panic(p)
-            eff_speed = self._effective_speed(p)
+            eff_speed = min(self._effective_speed(p), 0.999)  # accum이 1.0을 두 번 넘지 않도록
             p["accum"] += eff_speed
 
             if p["accum"] >= 1.0:
@@ -411,6 +417,19 @@ class FireEvacEnv(gym.Env):
                     old_pos, exit_quota, panic=p["panic"])
                 self._occupancy[old_pos] = max(
                     0, self._occupancy.get(old_pos, 0) - 1)
+
+                # 실제 이동 방향 저장 (Unity 보간용)
+                p["prev_move_dr"] = p["move_dr"]
+                p["prev_move_dc"] = p["move_dc"]
+                if new_pos != old_pos:
+                    p["move_dr"] = new_pos[0] - old_pos[0]
+                    p["move_dc"] = new_pos[1] - old_pos[1]
+                    p["was_blocked"] = False
+                else:
+                    p["move_dr"] = 0
+                    p["move_dc"] = 0
+                    p["was_blocked"] = True
+
                 if not exited:
                     self._occupancy[new_pos] = \
                         self._occupancy.get(new_pos, 0) + 1
@@ -838,26 +857,59 @@ class FireEvacEnv(gym.Env):
     # ──────────────────────────────────────────
     # Unity 연동 — JSON 스냅샷
     # ──────────────────────────────────────────
+    def _intended_dir(self, r: int, c: int):
+        """해당 셀에서 에이전트가 다음에 이동하려는 방향의 (dr, dc) 반환."""
+        if (r, c) in self.light_idx:
+            d = int(self.light_dirs[self.light_idx[(r, c)]])
+        else:
+            d = self._bfs_best(r, c)
+        return DELTA[d]
+
     def get_snapshot(self) -> dict:
-        """스텝별 상태 딕셔너리. JSON 직렬화 가능. Unity replay용."""
+        """스텝별 상태 딕셔너리. JSON 직렬화 가능. Unity replay용.
+
+        people 항목의 accum/dr/dc 를 이용하면 Unity에서 셀 사이를 선형 보간할 수 있음:
+          world_pos = (col + dc * accum) * cellSize,  (row + dr * accum) * cellSize
+        """
         fire_cells  = [[int(r), int(c)]
                        for r, c in zip(*np.where(self.fire_map > 0))] \
                       if self.fire_map.any() else []
         smoke_cells = [[int(r), int(c)]
                        for r, c in zip(*np.where(self.smoke_map > 0))] \
                       if self.smoke_map.any() else []
+        people = []
+        for p in self.people_data:
+            r, c = p["pos"]
+            # 방향 반전 감지: 이번 이동 방향이 직전 이동의 반대 → 시각적으로 제자리 처리
+            is_reversal = (
+                (p.get("prev_move_dr", 0) != 0 or p.get("prev_move_dc", 0) != 0) and
+                p.get("move_dr", 0) == -p.get("prev_move_dr", 0) and
+                p.get("move_dc", 0) == -p.get("prev_move_dc", 0)
+            )
+            if p.get("was_blocked", False) or is_reversal:
+                # 막히거나 방향 반전: 셀 중심에 고정 (pulsating/jump 방지)
+                dr, dc, visual_accum = 0, 0, 0.0
+            elif p.get("move_dr", 0) != 0 or p.get("move_dc", 0) != 0:
+                # 이 스텝에서 실제로 이동함
+                dr, dc = p["move_dr"], p["move_dc"]
+                visual_accum = p["accum"]
+            else:
+                # 아직 accum 누적 중 (이동 미도달) — 의도 방향으로 진행 표시
+                dr, dc = self._intended_dir(r, c)
+                visual_accum = p["accum"]
+            people.append({
+                "id":    p["id"],
+                "row":   r,
+                "col":   c,
+                "dr":    dr,
+                "dc":    dc,
+                "accum": round(float(visual_accum), 3),
+                "panic": round(float(p["panic"]), 3),
+                "speed": round(float(p["speed"]), 2),
+            })
         return {
             "step":    self.step_count,
-            "people":  [
-                {
-                    "id":    i,
-                    "row":   int(p["pos"][0]),
-                    "col":   int(p["pos"][1]),
-                    "panic": round(float(p["panic"]), 3),
-                    "speed": round(float(p["speed"]), 2),
-                }
-                for i, p in enumerate(self.people_data)
-            ],
+            "people":  people,
             "fire_cells":    fire_cells,
             "smoke_cells":   smoke_cells,
             "escaped":       self.escaped,

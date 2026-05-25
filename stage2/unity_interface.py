@@ -4,56 +4,67 @@ import numpy as np
 import threading
 import os
 import struct
+import pickle
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
-from env_core import FireEvacEnv
+from env_core import FireEvacEnv, SCENARIO_CONFIGS
+
+# GIF 시연 때 사용한 시나리오별 고정 seed (make_comparison_gifs.py SC_SEED 기준)
+DEMO_SEEDS = {1: 42, 2: 5, 3: 1, 4: 4, 5: 42, 6: 20}
 
 # ═══════════════════════════════════════════════════════════
-# 모델 로드 (수정 없음)
+# 모델 로드
 # ═══════════════════════════════════════════════════════════
-def load_model(n_agents=10):
-# 1. 모델이 저장된 실제 폴더 경로 지정 (stage2 기준)
+def load_model(scenario: int):
+    n_agents = SCENARIO_CONFIGS[scenario]["n_agents"]
     model_dir = os.path.join("model", "ppo")
-    
-    # 2. 파일명 지정
     model_name = f"fire_evac_model_{n_agents}ppl"
-    
-    # 3. 폴더 경로와 파일명을 안전하게 결합 (예: model\ppo\fire_evac_model_20ppl)
     model_path = os.path.join(model_dir, model_name)
     vecnorm_path = f"{model_path}_vecnorm.pkl"
-    
+
+    print(f"📋 시나리오 {scenario} → {n_agents}명 모델 로드 시도")
+
     try:
-        # PPO.load는 자동으로 .zip을 붙여서 찾습니다.
         model = PPO.load(model_path)
         print(f"✅ 모델 로드 성공: {model_path}.zip")
-        print(f"✅ 정규화 파일 경로: {vecnorm_path}")
-        
-        return model, vecnorm_path
-        
+
+        vecnorm = None
+        if os.path.exists(vecnorm_path):
+            with open(vecnorm_path, "rb") as f:
+                vecnorm = pickle.load(f)
+            vecnorm.training = False
+            vecnorm.norm_reward = False
+            print(f"✅ 정규화 로드 성공: {vecnorm_path}")
+        else:
+            print(f"⚠️ 정규화 파일 없음 (정규화 미적용): {vecnorm_path}")
+
+        return model, vecnorm, n_agents
+
     except Exception as e:
         print(f"❌ 모델 로드 실패: {e}")
         print(f"🔍 찾으려고 시도한 경로: {os.path.abspath(model_path)}.zip")
-        return None, None
+        return None, None, n_agents
 
 # ═══════════════════════════════════════════════════════════
 # 환경 관리자 (관측값 유지를 위해 self.obs 저장 위치 수정)
 # ═══════════════════════════════════════════════════════════
 class EnvironmentManager:
-    def __init__(self, n_agents=10, scenario=4):
-        self.n_agents = n_agents
+    def __init__(self, scenario=4):
         self.scenario = scenario
-        self.env = FireEvacEnv(scenario=scenario, n_agents=n_agents)
-        self.obs, self.info = self.env.reset()
+        self.n_agents = SCENARIO_CONFIGS[scenario]["n_agents"]
+        self.demo_seed = DEMO_SEEDS.get(scenario)
+        self.env = FireEvacEnv(scenario=scenario, n_agents=self.n_agents)
+        self.obs, self.info = self.env.reset(seed=self.demo_seed)
         self.step_count = 0
-        print(f"🎮 환경 초기화 | Agents: {n_agents}, Scenario: {scenario}")
+        print(f"🎮 환경 초기화 | Scenario: {scenario}, Agents: {self.n_agents}, Seed: {self.demo_seed}")
     
     def step(self, action):
         self.obs, reward, terminated, truncated, self.info = self.env.step(action)
         self.step_count += 1
         return self.obs, reward, terminated, truncated, self.info
     
-    def reset(self):
-        self.obs, self.info = self.env.reset()
+    def reset(self, seed=None):
+        self.obs, self.info = self.env.reset(seed=seed)
         self.step_count = 0
         return self.obs
     
@@ -67,13 +78,13 @@ class EnvironmentManager:
 # 소켓 서버
 # ═══════════════════════════════════════════════════════════
 class FireEvacServer:
-    def __init__(self, host='127.0.0.1', port=5555, n_agents=10):
+    def __init__(self, host='0.0.0.0', port=5555, scenario=4):
         self.host = host
         self.port = port
-        self.n_agents = n_agents
-        
-        self.model, self.vecnorm = load_model(n_agents)
-        self.env_manager = EnvironmentManager(n_agents=n_agents, scenario=4)
+        self.scenario = scenario
+
+        self.model, self.vecnorm, self.n_agents = load_model(scenario)
+        self.env_manager = EnvironmentManager(scenario=scenario)
         
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -108,7 +119,9 @@ class FireEvacServer:
         
         try:
             print("🔄 환경 초기화 중 (새 에피소드 준비)...")
-            self.env_manager.reset()
+            self.env_manager.reset(seed=self.env_manager.demo_seed)
+            self._smooth_action = None       # 에피소드마다 EMA 초기화
+            self._prev_snapshot_pos = {}     # 원거리 점프 감지용 초기화
 
             # 1. 초기 맵 정보와 시작 스냅샷을 유니티로 전송
             init_msg = {
@@ -139,11 +152,31 @@ class FireEvacServer:
                     action = action[0].tolist()
                 else:
                     action = [20.0, 20.0, 2.0]
-                
+
+                # BFS cost 급변으로 인한 경로 진동 방지: EMA smoothing (alpha=0.35)
+                if self._smooth_action is None:
+                    self._smooth_action = list(action)
+                self._smooth_action = [0.35 * a + 0.65 * s
+                                       for a, s in zip(action, self._smooth_action)]
+                action = list(self._smooth_action)
+
                 # 4. 파이썬 환경 스텝 진행
                 env_obs, reward, terminated, truncated, info = self.env_manager.step(action)
                 snapshot = self.env_manager.get_snapshot()
-                
+
+                # ── 디버그: 연속 스텝 간 2셀 이상 이동하는 원거리 점프 감지 ──
+                cur_pos = {p["id"]: p for p in snapshot["people"]}
+                if hasattr(self, '_prev_snapshot_pos'):
+                    for pid, p in cur_pos.items():
+                        prev = self._prev_snapshot_pos.get(pid)
+                        if prev:
+                            dist = abs(p["row"] - prev["row"]) + abs(p["col"] - prev["col"])
+                            if dist > 2:
+                                print(f"⚠️  [Step {self.env_manager.step_count}] 원거리 점프 "
+                                      f"id={pid}: ({prev['row']},{prev['col']}) dr={prev['dr']:+d} accum={prev['accum']:.3f}"
+                                      f" → ({p['row']},{p['col']}) dr={p['dr']:+d} accum={p['accum']:.3f}  dist={dist}")
+                self._prev_snapshot_pos = cur_pos
+
                 # 5. 결과 및 갱신된 스냅샷 전송
                 response = {
                     "message_type": "step_snapshot",
@@ -208,10 +241,11 @@ class FireEvacServer:
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=5555)
-    parser.add_argument("--agents", type=int, default=10)
+    parser.add_argument("--scenario", type=int, default=4,
+                        help="시나리오 번호 (1~6). 시나리오에 맞는 에이전트 수와 모델이 자동 선택됩니다.")
     args = parser.parse_args()
-    
-    server = FireEvacServer(host=args.host, port=args.port, n_agents=args.agents)
+
+    server = FireEvacServer(host=args.host, port=args.port, scenario=args.scenario)
     server.run()
