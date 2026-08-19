@@ -280,6 +280,10 @@ Unity-FireEvacSim-pipeline/
 
 ---
 
+## 추가 문서
+
+- [KCI 저널 게재를 위한 보완 사항 분석](docs/kci-submission-gap-analysis.md)
+
 ## 참고 문헌
 
 - [1] J. Schulman et al., "Proximal Policy Optimization Algorithms," *arXiv:1707.06347*, 2017.
