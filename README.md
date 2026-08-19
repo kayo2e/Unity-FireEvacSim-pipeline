@@ -183,8 +183,7 @@ PPO는 15차원 고정 관측으로 전체 상황을 요약해 행동 3개로 �
 ## 설치 및 실행
 
 ```bash
-pip install opencv-python scikit-image
-pip install gymnasium stable-baselines3 tensorboard torch numpy
+pip install -r requirements.txt
 ```
 
 ```bash
@@ -233,6 +232,19 @@ Unity-FireEvacSim-pipeline/
     ├── env_core.py                  # 핵심 환경 (FireEvacEnv, 시나리오, 보상)
     ├── train_ppo_grid.py            # PPO 커리큘럼 학습 메인 스크립트
     ├── train_common.py              # 체크포인트·VecNormalize 유틸리티
+    ├── unity_interface.py           # Python ↔ Unity 3D 연동 인터페이스
+    ├── record_episode.py            # 에피소드 기록 (recordings/*.jsonl 생성)
+    ├── playback_server.py           # 기록된 에피소드 재생 서버
+    ├── visualize_episode.py         # 2D GIF 렌더링 엔진
+    ├── make_visualize_episode.py    # 시각화 스크립트 (VISUALIZE_README 참고)
+    ├── make_visualize_episode_test.py
+    ├── make_comparison_gifs.py      # A* vs PPO 비교 GIF 생성
+    ├── make_comparison_gifs_2.py    # 비교 GIF 생성 (개선판)
+    ├── make_gridworld_map.py        # 포스터용 그리드월드 맵 시각화
+    ├── plot_exp1_table.py           # 표 3 그래프 생성
+    ├── plot_speed_cached.py         # 그림 5 포스터용 차트 생성
+    ├── plot_obs_design_split.py     # 관측 공간 설계 비교 그래프
+    ├── poster_grid.py               # 그림 4: A* vs PPO 경로 비교 그리드
     │
     ├── ppo/
     │   └── ppo_train.py             # PPO 학습·테스트 모듈
@@ -247,13 +259,8 @@ Unity-FireEvacSim-pipeline/
     │   ├── exp3_visualize.py        # 에피소드 GIF 시각화 (그림 6)
     │   └── exp_speed.py             # 추론 속도 비교 (그림 5)
     │
-    ├── plot_exp1_table.py           # 표 3 그래프 생성
-    ├── plot_speed_cached.py         # 그림 5 포스터용 차트 생성
-    ├── plot_obs_design_split.py     # 관측 공간 설계 비교 그래프
-    ├── poster_grid.py               # 그림 4: A* vs PPO 경로 비교 그리드
-    ├── make_gridworld_map.py        # 포스터용 그리드월드 맵 시각화
-    ├── visualize_episode.py         # 2D GIF 렌더링 엔진
-    │
+    ├── recordings/                  # 시나리오별 기록된 에피소드 (*.jsonl)
+    ├── figures/                     # 포스터·그림용 정적 이미지
     ├── model/                       # 학습된 PPO 모델 (.zip, _vecnorm.pkl)
     │   └── ppo/
     ├── result/                      # 실험 결과 JSON
@@ -265,6 +272,11 @@ Unity-FireEvacSim-pipeline/
     │   └── visualize/               # GIF·PNG 시각화 결과
     └── fire_evac_log/               # TensorBoard 로그
 ```
+
+> **참고**: `stage2/model/`, `stage2/logs/`에는 RecurrentPPO·JointPPO·AutoregressivePPO로
+> 학습한 체크포인트·로그도 일부 남아 있으나, 해당 알고리즘들의 학습 소스 코드(`env_joint.py`,
+> `train_joint.py`, `autoregressive_ppo/` 등)는 이후 정리 커밋에서 삭제되어 현재는 위 PPO
+> 파이프라인만 재현 가능합니다. 세 변형을 실제로 비교 결과에 포함하려면 코드 복원이 필요합니다.
 
 ---
 
