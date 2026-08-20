@@ -341,6 +341,7 @@ Unity-FireEvacSim-pipeline/
 
 - [KCI 저널 게재를 위한 보완 사항 분석](docs/kci-submission-gap-analysis.md)
 - [시뮬레이션 파라미터 근거표](docs/simulation-parameter-justification.md) — raw 데이터셋 부재를 문헌 근거로 방어하는 문서
+- [Hazard-Awareness Ablation](docs/hazard-aware-ablation.md) — "화재 무시" 베이스라인이 실제로는 화재를 회피하던 버그와 수정 전후 비교
 
 ## 참고 문헌
 
