@@ -24,6 +24,22 @@
 
 ---
 
+## 관련 연구
+
+동적 대피 유도(dynamic evacuation guidance)에 강화학습을 적용한 선행 연구와의 비교.
+이 프로젝트의 차별점: (1) 그리드 크기에 독립적인 15차원 고정 관측(F1~F15)으로 인원 수
+N에 무관하게 추론 속도 일정, (2) A* 3개 변형(Hazard-aware/Simple/Pure)과의 직접 비교로
+"왜 정적 A*가 아니라 학습된 정책이 필요한가"를 정량적으로 제시.
+
+| 연구 | 접근 방법 | 이 프로젝트와의 차이 |
+|---|---|---|
+| Xie et al. (2025) [3] | CTM 기반 메조스코픽 군중 모델 + PyroSim 화재 시뮬레이션 + QMIX(MARL)로 동적 표지판 최적화 | 가장 근접한 선행 연구(동적 유도등 + 화재 전파 + RL) — 다만 멀티에이전트 QMIX로 표지판 자체를 에이전트화하는 반면, 본 프로젝트는 단일 정책이 전역 출구 가중치를 출력하는 단순한 구조 |
+| Xu et al. (2021) [4] | 다중 출구 대피를 DRL로 시뮬레이션 (Transactions in GIS) | 화재 확산·병목을 명시적으로 모델링하지 않음 — 정적 다중 출구 선택 문제에 가까움 |
+| Zhang, Chai & Lykotrafitis (2021) [5] | Social force model 기반 particle dynamics 환경 + DRL(Dyna-Q), 오목 장애물 회피 | 개별 에이전트 경로계획이 목적 — 본 프로젝트처럼 "유도 시스템(출구 가중치)"을 학습하는 것이 아니라 에이전트 자체의 이동 정책을 학습 |
+| Lee et al. (2025) [2] | F_A\* — A\* 알고리즘 기반 화재 상황 대피 경로 탐색 | 학습 없는 휴리스틱 경로탐색 — 본 프로젝트의 A\* 베이스라인과 같은 계열, RL 비교 대상 |
+
+---
+
 ## 실험 결과
 
 > 조건: 30 에피소드 | EXIT_CAPACITY=1 / CELL_CAPACITY=1 병목 적용 | PPO 3,000,000 학습 스텝
@@ -283,10 +299,15 @@ Unity-FireEvacSim-pipeline/
 ## 추가 문서
 
 - [KCI 저널 게재를 위한 보완 사항 분석](docs/kci-submission-gap-analysis.md)
+- [시뮬레이션 파라미터 근거표](docs/simulation-parameter-justification.md) — raw 데이터셋 부재를 문헌 근거로 방어하는 문서
 
 ## 참고 문헌
 
 - [1] J. Schulman et al., "Proximal Policy Optimization Algorithms," *arXiv:1707.06347*, 2017.
 - [2] H.-K. Lee et al., "Research Evacuation Route Search in Case of Fire Using the F_A\* Algorithm Based on the A\* Algorithm," *Fire Sci. Eng.*, vol. 39, no. 1, pp. 22–32, 2025.
+- [3] C.-Z. Xie et al., "Coordinating Dynamic Signage for Evacuation Guidance: A Multi-Agent Reinforcement Learning Approach Integrating Mesoscopic Crowd Modeling and Fire Propagation," *Chaos, Solitons & Fractals*, 2025.
+- [4] D. Xu, X. Huang, J. Mango, X. Li, & Z. Li, "Simulating multi-exit evacuation using deep reinforcement learning," *Transactions in GIS*, 2021.
+- [5] Y. Zhang, Z. Chai, & G. Lykotrafitis, "Deep reinforcement learning with a particle dynamics environment applied to emergency evacuation of a room with obstacles," *Physica A*, 571, 2021.
 - Fruin, J. J. (1971). *Pedestrian Planning and Design*. Metropolitan Association of Urban Designers.
 - Helbing, D., Farkas, I., & Vicsek, T. (2000). Simulating dynamical features of escape panic. *Nature*, 407, 487–490.
+- Henderson, L. F. (1974). On the fluid mechanics of human crowd motion. *Transportation Research*, 8(6), 509–515.
