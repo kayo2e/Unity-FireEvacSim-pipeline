@@ -52,20 +52,30 @@ N에 무관하게 추론 속도 일정, (2) A* 3개 변형(Hazard-aware/Simple/P
 
 ### 시나리오별 성능 비교 (표 3)
 
-| 시나리오 | 인원 | A\* 생존율(%) | PPO 생존율(%) | A\* 완료 Step | PPO 완료 Step |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| S1 기본 탈출 | 20명 | **100** | **100** | 89±18 | **68±13** |
-| S2 EXIT A 위협 | 40명 | 77±16 | **89±5** | 110±18 | **94±12** |
-| S3 진입로 차단 | 40명 | 81±9 | **85±6** | 84±11 | **83±11** |
-| S4 양방향 동시 위협 | 40명 | 67±34 | 66±31 | 82±23 | **73±15**† |
-| S5 EXIT B 위협 (미학습, OOD) | 40명 | 85±9 | 74±6 | 106±15 | 103±15 |
+정적 유도등(최초 1회 계산 후 화재·군중 상태와 무관하게 고정 — EC directive
+92/58/EEC 준수 표준 표지판과 같은 원리)을 이 분야 표준 비교군으로 추가했다.
 
-> 핵심: S2·S3에서 PPO가 A\* 대비 **최대 +12%p 생존율 향상** / 완료 시간 단축.
-> PPO는 F7/F8(출구 혼잡도)을 실시간 인식해 병목 상황에서 출구 분산 유도.
-> **S4(양방향 동시 위협)에서는 생존율이 사실상 동률**(66.8% vs 65.8%,
-> paired t-test p=0.41 — 유의하지 않음)이지만, † **완료 시간 차이는 통계적으로
-> 유의**하다(paired t-test p=0.0072, Wilcoxon p=0.0075, n=30) — 생존율은 못
-> 앞서도 탈출을 유의하게 더 빨리 끝낸다는 뜻이다.
+| 시나리오 | 인원 | 정적 유도등 생존율 | A\* 생존율 | PPO 생존율 | 정적 Step | A\* Step | PPO Step |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| S1 기본 탈출 | 20명 | 99.8±0.9 | 99.8±0.9 | **99.8±0.9** | 68±15 | 79±18 | **63±16** |
+| S2 EXIT A 위협 | 40명 | 82.8±10.2 | 79.2±17.3 | **85.7±6.1** | 95±15 | 99±21 | **90±19** |
+| S3 진입로 차단 | 40명 | 86.2±6.6 | 87.1±6.1 | **88.1±6.3** | 79±12 | 83±11 | **78±11** |
+| S4 양방향 동시 위협 | 40명 | 65.2±32.5 | 66.8±33.6 | 66.0±31.2 | 80±17 | 82±23 | **73±17**† |
+| S5 EXIT B 위협 (미학습, OOD) | 40명 | — | 85±9 | 74±6 | — | 106±15 | 103±15 |
+
+> 핵심: 세 전략 모두 생존율은 비교적 근접하다 — 이 시뮬레이션 엔진
+> (`env_core._compute_bfs_with_risk`)이 화재·연기 셀 회피를 Dijkstra 비용
+> 함수에 항상 켜두기 때문에(어떤 전략이든 최소한의 위험 회피는 공유), "정적
+> 신호는 화재를 완전히 무시한다"는 문헌상의 극단적 가정만큼 차이가 크게
+> 벌어지지 않는다 — 이는 설계상의 사실이며 과장하지 않는다. 대신 **PPO의
+> 강점은 모든 시나리오에서 일관되게 나타나는 완료 시간 단축**이다(4개
+> 시나리오 전부 PPO가 최소 Step) — 특히 S2(혼잡 병목)에서는 생존율도 A\*보다
+> +6.5%p 높다. PPO는 F7/F8(출구 혼잡도)을 실시간 인식해 병목 상황에서 출구
+> 분산을 유도하는 반면, 정적/A\*는 이 피처 자체를 쓰지 않는다.
+>
+> **S4(양방향 동시 위협)에서는 생존율이 세 전략 다 사실상 동률**(A\*/PPO
+> paired t-test p=0.41 — 유의하지 않음)이지만, † **완료 시간 차이는
+> 통계적으로 유의**하다(paired t-test p=0.0072, Wilcoxon p=0.0075, n=30).
 >
 > **S5(EXIT B 위협)는 커리큘럼 학습에 전혀 포함되지 않은 시나리오**다
 > (`env_core.py`의 커리큘럼은 S1~S4까지만 진행) — 즉 정책이 한 번도 보지
@@ -251,6 +261,12 @@ python baselines/astar_baseline.py --all-scenarios --episodes 30
 python baselines/astar_simple_baseline.py --all-scenarios --episodes 30
 python baselines/astar_real.py --all-scenarios --episodes 30
 
+# 정적 유도등 베이스라인 (이 분야 표준 비교군)
+python baselines/static_signage_baseline.py --all-scenarios --episodes 30
+
+# 시드 페어링 + 정적 유도등 포함 전체 비교 (표 3 재현)
+python experiments/exp1_compare.py --scenarios 1 2 3 4 --episodes 30 --seed 42 --include-static
+
 # TensorBoard 학습 지표 확인
 tensorboard --logdir ./fire_evac_log/
 ```
@@ -290,9 +306,10 @@ Unity-FireEvacSim-pipeline/
     │   └── ppo_train.py             # PPO 학습·테스트 모듈
     │
     ├── baselines/
-    │   ├── astar_baseline.py        # Hazard-aware A* (화재·연기·혼잡 반영)
-    │   ├── astar_simple_baseline.py # Simple A* (화재 무시, 순수 최단거리)
-    │   └── astar_real.py            # Pure A* (Manhattan 휴리스틱)
+    │   ├── astar_baseline.py         # Hazard-aware A* (화재·연기·혼잡 반영)
+    │   ├── astar_simple_baseline.py  # Simple A* (화재 무시, 순수 최단거리)
+    │   ├── astar_real.py             # Pure A* (Manhattan 휴리스틱)
+    │   └── static_signage_baseline.py # 정적 유도등 (최초 1회 계산 후 고정, 이 분야 표준 비교군)
     │
     ├── experiments/
     │   ├── exp1_compare.py          # 시나리오별 A* vs PPO 비교 (표 3)
