@@ -84,7 +84,7 @@ DOI 발급, (c) LICENSE 파일 추가가 필요하다. 이번 세션에서 커�
 
 | 우선순위 | 항목 | 소요 | 상태 |
 |---|---|---|---|
-| 1 | 통계적 유의성 검정 추가 (표 3) | 낮음 | **S4 완료**(seed 페어링 + paired t-test/Wilcoxon) — 나머지 시나리오는 동일 방식으로 재측정 필요 |
+| 1 | 통계적 유의성 검정 추가 (표 3) | 낮음 | **완료** — S1~S5 전부 seed 페어링 + paired t-test 적용, PPO가 S1(ceiling effect) 제외 전 시나리오에서 A\* 대비 유의하게 높은 생존율(p<0.001~0.0008). 상세는 [hazard-aware-ablation.md](hazard-aware-ablation.md) |
 | 2 | 관련 연구 절 작성 | 중간 | **완료** — README `## 관련 연구` 참고 |
 | 3 | 시뮬레이션 파라미터 근거표 (Fruin/Helbing 대응) | 낮음 | **완료** — [`docs/simulation-parameter-justification.md`](simulation-parameter-justification.md). 실측 데이터 검증 확장은 **교수님 논의 대기** |
 | 4 | 추가 평면도 1~2개로 일반화 검증 | 중간~높음 | 미착수 — Stage 1 파이프라인은 이미 지원 |
