@@ -251,12 +251,19 @@ class FireEvacEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
     def __init__(self, scenario: int = 1, n_agents: int = 10,
-                 render_mode: Optional[str] = None):
+                 render_mode: Optional[str] = None, hazard_aware: bool = True):
         super().__init__()
         self.scenario    = scenario
         self.cfg         = SCENARIO_CONFIGS[scenario]
         self.n_agents    = n_agents
         self.render_mode = render_mode
+        # 기본값 True — 기존 PPO 학습·Hazard-aware A* 동작을 그대로 보존한다.
+        # False면 Dijkstra 방향 결정 단계(_compute_bfs_with_risk)가 화재/연기
+        # 셀 회피 비용을 아예 적용하지 않는다 — "화재 무시"/"정적" 계열
+        # 베이스라인(Simple A*, Pure A*, 정적 유도등)이 이름 그대로 동작하게
+        # 하려면 반드시 False로 생성해야 한다(전에는 baseline 이름과 무관하게
+        # 항상 회피가 걸려 있어 "화재 무시"라는 설명과 실제 동작이 어긋났음).
+        self.hazard_aware = hazard_aware
         self.ROWS, self.COLS = BASE_GRID.shape
 
         self.light_cells = [
@@ -712,8 +719,11 @@ class FireEvacEnv(gym.Env):
                 nr, nc = r + dr, c + dc
                 if (0 <= nr < self.ROWS and 0 <= nc < self.COLS
                         and self.grid[nr, nc] in WALKABLE):
-                    base = (10.0 if self.fire_map[nr, nc] > 0  # 화재 통과 페널티 고정
-                            else 5 if self.smoke_map[nr, nc] > 0 else 1)
+                    if self.hazard_aware:
+                        base = (10.0 if self.fire_map[nr, nc] > 0  # 화재 통과 페널티
+                                else 5 if self.smoke_map[nr, nc] > 0 else 1)
+                    else:
+                        base = 1  # hazard_aware=False — 화재/연기 회피 비용 없음
                     new_cost = cost + base + \
                         self._occupancy.get((nr, nc), 0) * crowd_weight
                     if new_cost < dist[nr, nc]:

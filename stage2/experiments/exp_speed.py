@@ -110,6 +110,9 @@ if __name__ == "__main__":
     parser.add_argument("--scenarios", type=int, nargs="+", default=[1, 4])
     parser.add_argument("--no-ppo",    action="store_true")
     parser.add_argument("--no-astar",  action="store_true")
+    parser.add_argument("--n-agents",  type=int, default=None,
+                        help="인원수 강제 지정 — 실시간 배포 가능선(N 스케일링) 측정용, "
+                             "예: --n-agents 300")
     args = parser.parse_args()
 
     ppo_dir = os.path.join(BASE, "model", "ppo")
@@ -121,7 +124,7 @@ if __name__ == "__main__":
     print(f"{'─'*78}")
 
     for sc in args.scenarios:
-        n = SCENARIO_CONFIGS[sc]["n_agents"]
+        n = args.n_agents if args.n_agents is not None else SCENARIO_CONFIGS[sc]["n_agents"]
         print(f"\n  [S{sc} {SCENARIO_CONFIGS[sc]['name']} — {n}명]")
 
         if not args.no_astar:

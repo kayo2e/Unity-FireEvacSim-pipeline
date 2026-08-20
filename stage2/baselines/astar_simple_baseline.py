@@ -299,6 +299,7 @@ def run_test(
             scenario=scenario,
             n_agents=n_agents,
             render_mode=render_mode,
+            hazard_aware=False,  # "화재 무시"가 이 베이스라인의 핵심 전제
         )
 
         obs, info = env.reset()

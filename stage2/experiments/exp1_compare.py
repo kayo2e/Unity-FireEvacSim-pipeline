@@ -23,35 +23,70 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 from env_core import FireEvacEnv, SCENARIO_CONFIGS
 from astar_real import astar_action
+from static_signage_baseline import static_signage_action
+from astar_baseline import astar_action as hazard_astar_action
+from astar_simple_baseline import simple_astar_action
 
 RESULT_BASE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                            "result", "exp1_compare")
 
 
-# ── A* 테스트 ─────────────────────────────────
-def run_astar(scenario: int, n_agents: int, n_episodes: int) -> list:
+# ── A* / 정적 유도등 공용 테스트 루프 ─────────────────
+def _run_frozen_action_policy(action_fn, scenario: int, n_agents: int,
+                               n_episodes: int, base_seed: int = None,
+                               hazard_aware: bool = False) -> list:
+    """astar_action(매 스텝 재계산)과 static_signage_action(최초 1회만 계산 후
+    env에 캐시)를 동일한 루프로 돌린다 — 둘 다 (env) -> np.ndarray 인터페이스라
+    반복 호출 자체는 같고, '언제 재계산하느냐'만 액션 함수 내부에서 갈린다.
+
+    hazard_aware=False가 기본값 — astar_real(Pure A*)과 static_signage 둘 다
+    "화재 무시"가 이름의 핵심 전제인데, env_core.FireEvacEnv의 Dijkstra 방향
+    결정 단계가 예전엔 hazard_aware 플래그 없이 항상 화재 회피를 걸어서 이름과
+    실제 동작이 어긋나 있었다(발견 및 수정 경위: 대화 중 사용자 지적)."""
     cfg = SCENARIO_CONFIGS[scenario]
     records = []
     for ep in range(n_episodes):
-        env = FireEvacEnv(scenario=scenario, n_agents=n_agents)
-        obs, _ = env.reset()
+        env = FireEvacEnv(scenario=scenario, n_agents=n_agents, hazard_aware=hazard_aware)
+        # base_seed + ep로 고정 — PPO 쪽도 같은 시드를 써서 "같은 에피소드 번호는
+        # 같은 화재/에이전트 시작 조건"이 되도록 페어링한다 (환경 랜덤성과 정책
+        # 차이를 분리해야 paired t-test가 의미 있음)
+        seed = None if base_seed is None else base_seed + ep
+        obs, _ = env.reset(seed=seed)
         total_r = 0.0
         info = {}
         for _ in range(cfg["max_steps"]):
-            action = astar_action(env)
+            action = action_fn(env)
             obs, r, term, trunc, info = env.step(action)
             total_r += r
             if term or trunc:
                 break
         env.close()
-        records.append(_make_rec(ep + 1, scenario, n_agents, info, total_r))
+        records.append(_make_rec(ep + 1, scenario, n_agents, info, total_r, seed))
         _print_ep(ep + 1, n_episodes, records[-1])
     return records
 
 
+def run_astar(scenario: int, n_agents: int, n_episodes: int, base_seed: int = None) -> list:
+    return _run_frozen_action_policy(astar_action, scenario, n_agents, n_episodes, base_seed)
+
+
+def run_static(scenario: int, n_agents: int, n_episodes: int, base_seed: int = None) -> list:
+    return _run_frozen_action_policy(static_signage_action, scenario, n_agents, n_episodes, base_seed)
+
+
+def run_hazard_astar(scenario: int, n_agents: int, n_episodes: int, base_seed: int = None) -> list:
+    # 화재 인식이 이 베이스라인의 핵심 전제라 hazard_aware=True로 명시 오버라이드
+    return _run_frozen_action_policy(hazard_astar_action, scenario, n_agents, n_episodes,
+                                      base_seed, hazard_aware=True)
+
+
+def run_simple_astar(scenario: int, n_agents: int, n_episodes: int, base_seed: int = None) -> list:
+    return _run_frozen_action_policy(simple_astar_action, scenario, n_agents, n_episodes, base_seed)
+
+
 # ── PPO 테스트 ────────────────────────────────
 def run_ppo(scenario: int, n_agents: int, n_episodes: int,
-            model_dir: str, model_cls_name: str) -> list:
+            model_dir: str, model_cls_name: str, base_seed: int = None) -> list:
     cfg = SCENARIO_CONFIGS[scenario]
 
     ModelCls = _load_model_cls(model_cls_name)
@@ -72,6 +107,10 @@ def run_ppo(scenario: int, n_agents: int, n_episodes: int,
             vec.training = False
             vec.norm_reward = False
 
+        # run_astar와 동일한 base_seed+ep — 같은 에피소드 번호끼리 화재/시작 조건을 맞춘다
+        seed = None if base_seed is None else base_seed + ep
+        if seed is not None:
+            vec.seed(seed)
         obs = vec.reset()
         lstm_states = None
         ep_starts = np.ones((1,), dtype=bool)
@@ -93,18 +132,19 @@ def run_ppo(scenario: int, n_agents: int, n_episodes: int,
                 break
         vec.close()
 
-        records.append(_make_rec(ep + 1, scenario, n_agents, info, total_r))
+        records.append(_make_rec(ep + 1, scenario, n_agents, info, total_r, seed))
         _print_ep(ep + 1, n_episodes, records[-1])
     return records
 
 
 # ── 유틸 ──────────────────────────────────────
-def _make_rec(ep, scenario, n_agents, info, total_r):
+def _make_rec(ep, scenario, n_agents, info, total_r, seed=None):
     return {
         "episode":       ep,
         "scenario":      scenario,
         "scenario_name": SCENARIO_CONFIGS[scenario]["name"],
         "n_agents":      n_agents,
+        "seed":          seed,
         "survived":      info.get("escaped", 0),
         "escaped_A":     info.get("escaped_A", 0),
         "escaped_B":     info.get("escaped_B", 0),
@@ -217,6 +257,29 @@ def _save_results(scenario, astar_recs, ppo_recs, ppo_label):
     print(f"  저장: {json_path}")
 
 
+def _save_extra_results(scenario, recs, model_label):
+    """--include-* 계열 공용 — astar/ppo와 별도 파일로 저장(기존 표 3 파이프라인과
+    분리해 하위 호환 유지). model_label 예: 'static', 'hazard_astar', 'simple_astar'."""
+    os.makedirs(RESULT_BASE, exist_ok=True)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    all_recs = [{"model": model_label, **r} for r in recs]
+    csv_path = os.path.join(RESULT_BASE, f"exp1_{model_label}_s{scenario}_{ts}.csv")
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=all_recs[0].keys())
+        writer.writeheader()
+        writer.writerows(all_recs)
+    json_path = os.path.join(RESULT_BASE, f"exp1_{model_label}_s{scenario}_{ts}_summary.json")
+    summary = {
+        "scenario": scenario, "n_episodes": len(recs),
+        model_label: {k: _stats([r[k] for r in recs])
+                      for k in ("survival_rate", "escaped_A", "escaped_B", "dead", "steps_taken")},
+    }
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(summary, f, ensure_ascii=False, indent=2)
+    print(f"  저장: {csv_path}")
+    print(f"  저장: {json_path}")
+
+
 # ── 진입점 ────────────────────────────────────
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="실험①: A* vs PPO 직접 비교")
@@ -230,9 +293,22 @@ if __name__ == "__main__":
     parser.add_argument("--model-cls",  type=str, default="ppo",
                         choices=["ppo", "recurrent"], help="ppo | recurrent")
     parser.add_argument("--no-save",    action="store_true")
+    parser.add_argument("--seed",       type=int, default=42,
+                        help="base seed — 에피소드 n은 seed+n으로 고정, A*/PPO가 같은 "
+                             "화재·시작조건을 겪도록 페어링(재현성 + paired test 목적). "
+                             "None이면 완전 비결정(기존 동작)")
+    parser.add_argument("--include-static", action="store_true",
+                        help="정적 유도등(최초 1회 계산 후 고정) 베이스라인도 같은 시드로 "
+                             "돌려서 별도 저장 — 이 분야 표준 비교군(동적 vs 정적)")
+    parser.add_argument("--include-hazard-astar", action="store_true",
+                        help="Hazard-aware A*(astar_baseline.py, 화재 인식 전제)도 같은 "
+                             "시드로 돌려서 별도 저장")
+    parser.add_argument("--include-simple-astar", action="store_true",
+                        help="Simple A*(astar_simple_baseline.py, 화재 무시)도 같은 시드로 "
+                             "돌려서 별도 저장")
     args = parser.parse_args()
 
-    all_astar, all_ppo = {}, {}
+    all_astar, all_ppo, all_static = {}, {}, {}
     for sc in args.scenarios:
         default_n = SCENARIO_CONFIGS[sc]["n_agents"]
         n = args.n_agents if args.n_agents is not None else default_n
@@ -243,22 +319,45 @@ if __name__ == "__main__":
         print(f"{'━'*66}")
 
         print("\n[A* 베이스라인]")
-        astar_recs = run_astar(sc, n, args.episodes)
+        astar_recs = run_astar(sc, n, args.episodes, args.seed)
         all_astar[sc] = astar_recs
 
         print(f"\n[{args.model_cls.upper()} 모델]")
-        ppo_recs = run_ppo(sc, n, args.episodes, args.model_dir, args.model_cls)
+        ppo_recs = run_ppo(sc, n, args.episodes, args.model_dir, args.model_cls, args.seed)
         all_ppo[sc] = ppo_recs
+
+        static_recs = []
+        if args.include_static:
+            print("\n[정적 유도등 베이스라인]")
+            static_recs = run_static(sc, n, args.episodes, args.seed)
+            all_static[sc] = static_recs
+
+        hazard_astar_recs = []
+        if args.include_hazard_astar:
+            print("\n[Hazard-aware A* 베이스라인]")
+            hazard_astar_recs = run_hazard_astar(sc, n, args.episodes, args.seed)
+
+        simple_astar_recs = []
+        if args.include_simple_astar:
+            print("\n[Simple A* 베이스라인]")
+            simple_astar_recs = run_simple_astar(sc, n, args.episodes, args.seed)
 
         _print_comparison(sc, astar_recs, ppo_recs, args.model_cls)
         if not args.no_save:
             _save_results(sc, astar_recs, ppo_recs, args.model_cls)
+            if static_recs:
+                _save_extra_results(sc, static_recs, "static")
+            if hazard_astar_recs:
+                _save_extra_results(sc, hazard_astar_recs, "hazard_astar")
+            if simple_astar_recs:
+                _save_extra_results(sc, simple_astar_recs, "simple_astar")
 
     # 전체 요약
     print(f"\n{'═'*66}")
     print("  전체 시나리오 요약  (생존율 mean ± std)")
     print(f"{'─'*66}")
-    print(f"  {'시나리오':<18} {'A* 베이스라인':>14}  {'PPO':>14}  {'차이':>8}")
+    static_hdr = f"  {'정적 유도등':>14}" if args.include_static else ""
+    print(f"  {'시나리오':<18} {'A* 베이스라인':>14}  {'PPO':>14}  {'차이':>8}{static_hdr}")
     print(f"{'─'*66}")
     for sc in args.scenarios:
         default_n = SCENARIO_CONFIGS[sc]["n_agents"]
@@ -272,5 +371,10 @@ if __name__ == "__main__":
         p_str = f"{p.mean():.1%}±{p.std():.1%}" if len(p) > 0 else "N/A"
         diff_val = p.mean() - a.mean() if len(p) > 0 else None
         diff  = (f"+{diff_val:.1%}" if diff_val >= 0 else f"{diff_val:.1%}") if diff_val is not None else "N/A"
-        print(f"  S{sc} {name:<16} {a_str:>14}  {p_str:>14}  {diff:>8}")
+        static_col = ""
+        if args.include_static:
+            s_recs = all_static.get(sc, [])
+            s = np.array([r["survival_rate"] for r in s_recs]) if s_recs else np.array([])
+            static_col = f"  {(f'{s.mean():.1%}±{s.std():.1%}' if len(s) > 0 else 'N/A'):>14}"
+        print(f"  S{sc} {name:<16} {a_str:>14}  {p_str:>14}  {diff:>8}{static_col}")
     print(f"{'═'*66}")
