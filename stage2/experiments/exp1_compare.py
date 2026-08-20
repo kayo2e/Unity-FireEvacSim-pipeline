@@ -31,14 +31,20 @@ RESULT_BASE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 
 # ── A* / 정적 유도등 공용 테스트 루프 ─────────────────
 def _run_frozen_action_policy(action_fn, scenario: int, n_agents: int,
-                               n_episodes: int, base_seed: int = None) -> list:
+                               n_episodes: int, base_seed: int = None,
+                               hazard_aware: bool = False) -> list:
     """astar_action(매 스텝 재계산)과 static_signage_action(최초 1회만 계산 후
     env에 캐시)를 동일한 루프로 돌린다 — 둘 다 (env) -> np.ndarray 인터페이스라
-    반복 호출 자체는 같고, '언제 재계산하느냐'만 액션 함수 내부에서 갈린다."""
+    반복 호출 자체는 같고, '언제 재계산하느냐'만 액션 함수 내부에서 갈린다.
+
+    hazard_aware=False가 기본값 — astar_real(Pure A*)과 static_signage 둘 다
+    "화재 무시"가 이름의 핵심 전제인데, env_core.FireEvacEnv의 Dijkstra 방향
+    결정 단계가 예전엔 hazard_aware 플래그 없이 항상 화재 회피를 걸어서 이름과
+    실제 동작이 어긋나 있었다(발견 및 수정 경위: 대화 중 사용자 지적)."""
     cfg = SCENARIO_CONFIGS[scenario]
     records = []
     for ep in range(n_episodes):
-        env = FireEvacEnv(scenario=scenario, n_agents=n_agents)
+        env = FireEvacEnv(scenario=scenario, n_agents=n_agents, hazard_aware=hazard_aware)
         # base_seed + ep로 고정 — PPO 쪽도 같은 시드를 써서 "같은 에피소드 번호는
         # 같은 화재/에이전트 시작 조건"이 되도록 페어링한다 (환경 랜덤성과 정책
         # 차이를 분리해야 paired t-test가 의미 있음)
