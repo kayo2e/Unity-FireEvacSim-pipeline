@@ -29,12 +29,16 @@ RESULT_BASE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 
 
 # ── A* 테스트 ─────────────────────────────────
-def run_astar(scenario: int, n_agents: int, n_episodes: int) -> list:
+def run_astar(scenario: int, n_agents: int, n_episodes: int, base_seed: int = None) -> list:
     cfg = SCENARIO_CONFIGS[scenario]
     records = []
     for ep in range(n_episodes):
         env = FireEvacEnv(scenario=scenario, n_agents=n_agents)
-        obs, _ = env.reset()
+        # base_seed + ep로 고정 — PPO 쪽도 같은 시드를 써서 "같은 에피소드 번호는
+        # 같은 화재/에이전트 시작 조건"이 되도록 페어링한다 (환경 랜덤성과 정책
+        # 차이를 분리해야 paired t-test가 의미 있음)
+        seed = None if base_seed is None else base_seed + ep
+        obs, _ = env.reset(seed=seed)
         total_r = 0.0
         info = {}
         for _ in range(cfg["max_steps"]):
@@ -44,14 +48,14 @@ def run_astar(scenario: int, n_agents: int, n_episodes: int) -> list:
             if term or trunc:
                 break
         env.close()
-        records.append(_make_rec(ep + 1, scenario, n_agents, info, total_r))
+        records.append(_make_rec(ep + 1, scenario, n_agents, info, total_r, seed))
         _print_ep(ep + 1, n_episodes, records[-1])
     return records
 
 
 # ── PPO 테스트 ────────────────────────────────
 def run_ppo(scenario: int, n_agents: int, n_episodes: int,
-            model_dir: str, model_cls_name: str) -> list:
+            model_dir: str, model_cls_name: str, base_seed: int = None) -> list:
     cfg = SCENARIO_CONFIGS[scenario]
 
     ModelCls = _load_model_cls(model_cls_name)
@@ -72,6 +76,10 @@ def run_ppo(scenario: int, n_agents: int, n_episodes: int,
             vec.training = False
             vec.norm_reward = False
 
+        # run_astar와 동일한 base_seed+ep — 같은 에피소드 번호끼리 화재/시작 조건을 맞춘다
+        seed = None if base_seed is None else base_seed + ep
+        if seed is not None:
+            vec.seed(seed)
         obs = vec.reset()
         lstm_states = None
         ep_starts = np.ones((1,), dtype=bool)
@@ -93,18 +101,19 @@ def run_ppo(scenario: int, n_agents: int, n_episodes: int,
                 break
         vec.close()
 
-        records.append(_make_rec(ep + 1, scenario, n_agents, info, total_r))
+        records.append(_make_rec(ep + 1, scenario, n_agents, info, total_r, seed))
         _print_ep(ep + 1, n_episodes, records[-1])
     return records
 
 
 # ── 유틸 ──────────────────────────────────────
-def _make_rec(ep, scenario, n_agents, info, total_r):
+def _make_rec(ep, scenario, n_agents, info, total_r, seed=None):
     return {
         "episode":       ep,
         "scenario":      scenario,
         "scenario_name": SCENARIO_CONFIGS[scenario]["name"],
         "n_agents":      n_agents,
+        "seed":          seed,
         "survived":      info.get("escaped", 0),
         "escaped_A":     info.get("escaped_A", 0),
         "escaped_B":     info.get("escaped_B", 0),
@@ -230,6 +239,10 @@ if __name__ == "__main__":
     parser.add_argument("--model-cls",  type=str, default="ppo",
                         choices=["ppo", "recurrent"], help="ppo | recurrent")
     parser.add_argument("--no-save",    action="store_true")
+    parser.add_argument("--seed",       type=int, default=42,
+                        help="base seed — 에피소드 n은 seed+n으로 고정, A*/PPO가 같은 "
+                             "화재·시작조건을 겪도록 페어링(재현성 + paired test 목적). "
+                             "None이면 완전 비결정(기존 동작)")
     args = parser.parse_args()
 
     all_astar, all_ppo = {}, {}
@@ -243,11 +256,11 @@ if __name__ == "__main__":
         print(f"{'━'*66}")
 
         print("\n[A* 베이스라인]")
-        astar_recs = run_astar(sc, n, args.episodes)
+        astar_recs = run_astar(sc, n, args.episodes, args.seed)
         all_astar[sc] = astar_recs
 
         print(f"\n[{args.model_cls.upper()} 모델]")
-        ppo_recs = run_ppo(sc, n, args.episodes, args.model_dir, args.model_cls)
+        ppo_recs = run_ppo(sc, n, args.episodes, args.model_dir, args.model_cls, args.seed)
         all_ppo[sc] = ppo_recs
 
         _print_comparison(sc, astar_recs, ppo_recs, args.model_cls)
