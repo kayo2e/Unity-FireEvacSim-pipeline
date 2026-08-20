@@ -46,101 +46,6 @@ N에 무관하게 추론 속도 일정, (2) A* 3개 변형(Hazard-aware/Simple/P
 
 ---
 
-## 실험 결과
-
-> 조건: 30 에피소드 | EXIT_CAPACITY=1 / CELL_CAPACITY=1 병목 적용 | PPO 3,000,000 학습 스텝
-
-### 시나리오별 성능 비교 (표 3)
-
-정적 유도등(최초 1회 계산 후 화재·군중 상태와 무관하게 고정 — EC directive
-92/58/EEC 준수 표준 표지판과 같은 원리)을 이 분야 표준 비교군으로 추가했다.
-A\*·정적 유도등은 `hazard_aware=False`로 평가해 실제로 화재를 무시하도록
-수정했다(수정 배경: [Hazard-Awareness Ablation](docs/hazard-aware-ablation.md)
-— 이전 버전은 "화재 무시"를 표방하면서도 내부적으로 화재 회피가 항상
-켜져 있던 버그가 있었다).
-
-| 시나리오 | 인원 | 정적 유도등 생존율 | A\* 생존율 | PPO 생존율 | 정적 Step | A\* Step | PPO Step |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| S1 기본 탈출 | 20명 | 99.8±0.9 | 99.8±0.9 | **99.8±0.9** | 68±15 | 79±18 | **63±16** |
-| S2 EXIT A 위협 | 40명 | 59.0±16.8 | 54.4±22.0 | **85.7±6.1**‡ | 71±15 | 76±17 | 90±19 |
-| S3 진입로 차단 | 40명 | 57.8±12.1 | 60.5±14.3 | **88.1±6.3**‡ | 58±10 | 62±14 | 78±11 |
-| S4 양방향 동시 위협 | 40명 | 50.0±25.8 | 53.0±29.1 | **66.0±31.2**‡ | 66±15 | 70±14 | 73±17 |
-| S5 EXIT B 위협 (미학습, OOD) | 40명 | 63.1±15.4 | 67.1±20.5 | **79.4±8.8**‡ | 75±12 | 84±14 | 88±18 |
-
-> ‡ paired t-test 기준 A\* 대비 통계적으로 유의(p<0.001, S4는 p=0.0008, n=30,
-> `--seed 42` 페어링). **S1을 제외한 전 시나리오에서 PPO 생존율이 A\* 대비
-> 유의하게 높다** — S2 +31.2%p, S3 +27.6%p, S4 +13.0%p, S5(미학습 OOD) +12.3%p.
-> S1은 두 방법 다 ~100%에 수렴하는 천장 효과(ceiling effect)라 유의성 검정이
-> 성립하지 않는다(분산이 0에 가까움).
->
-> 정적 유도등과 A\*는 이제 서로 근접하다(둘 다 화재를 무시하고 최단경로만
-> 따르는 게 핵심이라 당연한 결과) — 흥미롭게도 **Step 수는 정적/A\*가 더
-> 적다**(S2/S3/S5에서 PPO보다 짧음): 화재를 무시하고 직진하니 살아남는
-> 사람은 더 빨리 나오지만, 그만큼 더 많이 죽는다. **PPO는 시간을 약간
-> 더 쓰는 대신 생존율을 크게 끌어올리는 트레이드오프**를 학습했다는 뜻이다.
->
-> 이 메커니즘을 정량적으로 뜯어보면(`experiments/compute_extra_metrics.py`),
-> 처음 가정했던 "출구 분산 유도"가 아니라 **정반대**였다 — PPO의 Exit
-> Balance(양쪽 출구 균등 사용도)는 A\*보다 오히려 낮다(S2: 0.226 vs 0.411,
-> S3: 0.248 vs 0.400, S4: 0.401 vs 0.496). 대신 **Throughput(스텝당 처리
-> 인원)은 항상 A\*보다 높다**(S2: 0.394 vs 0.302, S3: 0.465 vs 0.403, S4:
-> 0.363 vs 0.300). 즉 PPO는 F7/F8(출구 혼잡도)을 인식해 양쪽 출구에 고르게
-> 나누는 게 아니라, **상황상 더 안전하거나 빠른 쪽 출구로 과감하게 몰아
-> 처리 효율을 극대화**하는 전략을 학습했다 — "분산"이 아니라 "결단력 있는
-> 쏠림 + 높은 처리량"이 실제 메커니즘이다.
->
-> **S5(EXIT B 위협)는 커리큘럼 학습에 전혀 포함되지 않은 시나리오**다
-> (`env_core.py`의 커리큘럼은 S1~S4까지만 진행) — 한 번도 보지 못한 화재
-> 패턴에서도 A\* 대비 유의하게 높은 생존율을 보인다는 것은 관측 공간
-> (F1~F15)이 특정 시나리오에 과적합되지 않고 실제로 전이(transfer)된다는
-> 근거다.
->
-> **S5(EXIT B 위협)는 커리큘럼 학습에 전혀 포함되지 않은 시나리오**다
-> (`env_core.py`의 커리큘럼은 S1~S4까지만 진행) — 즉 정책이 한 번도 보지
-> 못한 화재 패턴에서의 일반화 성능을 보려고 의도적으로 남겨둔 out-of-
-> distribution 테스트다. A\*(85%)에는 못 미치지만 **한 번도 학습하지 않은
-> 시나리오에서도 74% 생존율을 유지**한다는 것 자체가 관측 공간(F1~F15)이
-> 특정 시나리오에 과적합되지 않고 어느 정도 전이(transfer)된다는 근거로
-> 해석한다.
->
-> S4는 `--seed 42`로 A\*/PPO가 매 에피소드 동일한 화재·시작 조건을 겪도록
-> 페어링해 재현 가능하게 재측정했다(`experiments/exp1_compare.py --seed`
-> 신규 옵션). 나머지 시나리오는 아직 비결정적 실행 결과라 재현성이 없고,
-> 값비교 유의성 검정도 못 붙였다 — 다음 단계로 동일하게 페어링해 재측정할
-> 예정이다.
-
----
-
-## A\* vs PPO 시각화 비교
-
-> `■` 빨강: 화재 | `●` 초록/파랑: 대피자 | 화살표: 유도등 방향
-
-### S1 — 기본 탈출 (20명, 고정 화재)
-
-| A\* (Hazard-aware) | PPO |
-| :---: | :---: |
-| ![S1 A*](stage2/result/visualize/s1_astar_ep1/episode.gif) | ![S1 PPO](stage2/result/visualize/s1_model_ep1/episode.gif) |
-
-### S2 — EXIT A 위협 (40명, 우측 구역 화재)
-
-| A\* (Hazard-aware) | PPO |
-| :---: | :---: |
-| ![S2 A*](stage2/result/visualize/s2_astar_ep1/episode.gif) | ![S2 PPO](stage2/result/visualize/s2_model_ep1/episode.gif) |
-
-### S3 — 진입로 차단 (40명, EXIT A 접근로 화재)
-
-| A\* (Hazard-aware) | PPO |
-| :---: | :---: |
-| ![S3 A*](stage2/result/visualize/s3_astar_ep1/episode.gif) | ![S3 PPO](stage2/result/visualize/s3_model_ep1/episode.gif) |
-
-### S4 — 양방향 동시 위협 (40명, 출구 A·B 구역 화재)
-
-| A\* (Hazard-aware) | PPO |
-| :---: | :---: |
-| ![S4 A*](stage2/result/visualize/s4_astar_ep1/episode.gif) | ![S4 PPO](stage2/result/visualize/s4_model_ep1/episode.gif) |
-
----
-
 ## 방법론
 
 ### Stage 1 — 피난안내도 그리드 추출
@@ -208,7 +113,7 @@ LAYER 4 — 실행 및 피드백
 
 > ★ **F7/F8**: A\*는 이 피처를 사용하지 않는다 — PPO는 이를 이용해 병목
 > 상황에서 더 유리한 쪽 출구로 몰아 처리 효율(Throughput)을 높인다(양쪽
-> 출구를 균등하게 나누는 것은 아니다 — 실측 근거는 표 3 하단 참고).
+> 출구를 균등하게 나누는 것은 아니다 — 실측 근거는 실험 결과 절 참고).
 
 ---
 
@@ -222,6 +127,10 @@ LAYER 4 — 실행 및 피드백
 | S2 | EXIT A 위협 | 40명 | 우측 구역 상단 | 12% | 탈출완료 ≥ 85% |
 | S3 | 진입로 차단 | 40명 | EXIT A 접근로 | 18% | 탈출완료 ≥ 85% |
 | S4 | 양방향 동시 위협 | 40명 | 출구 A·B 구역 | 15% | 탈출완료 ≥ 80% |
+
+> 커리큘럼은 S1~S4까지만 진행되며(`--max-scenario 4`), S5(EXIT B 위협)는
+> 학습에서 완전히 제외해 out-of-distribution 일반화 테스트로 남겨둔다 —
+> 상세는 실험 결과 절 참고.
 
 ---
 
@@ -238,9 +147,65 @@ LAYER 4 — 실행 및 피드백
 > **urgency 배율**: 스텝 경과에 따라 ×1.0 → ×3.0으로 증가 (타임아웃 억제)
 >
 > **분산 보너스가 있어도 실제 학습된 정책은 균형보다 처리 효율을 우선한다**
-> (Exit Balance 실측 결과는 위 표 3 하단 참고) — 다른 보상 항목(생존·사망·
+> (Exit Balance 실측 결과는 실험 결과 절 참고) — 다른 보상 항목(생존·사망·
 > 잔류 페널티)의 크기가 더 커서, 최종적으로는 "고르게 나누기"보다 "더 나은
 > 쪽으로 몰아 빨리 처리하기"가 우세한 전략으로 수렴한 것으로 보인다.
+
+---
+
+## 실험 결과
+
+> 조건: 30 에피소드 | EXIT_CAPACITY=1 / CELL_CAPACITY=1 병목 적용 | PPO 3,500,000 학습
+> 스텝(커리큘럼 S1→S4, `--max-scenario 4`로 S5는 학습에서 제외) | `--seed 42` 페어링
+> (A\*/PPO/정적 유도등이 매 에피소드 동일한 화재·시작 조건을 겪음)
+
+### 시나리오별 성능 비교 (표 3)
+
+세 가지 유도 전략을 비교한다. **정적 유도등**은 최초 1회 계산한 경로를
+화재·군중 상태와 무관하게 고정한다(EC directive 92/58/EEC 준수 표준
+표지판과 같은 원리 — 동적 유도등 문헌의 표준 비교군). **A\***는 매 스텝
+재탐색하되 화재를 무시하는 순수 최단경로(Pure A\*, Manhattan 휴리스틱).
+**PPO**는 학습된 정책. A\*·정적 유도등 모두 `hazard_aware=False`로 평가해
+실제로 화재를 무시하도록 구현했다(구현 세부사항 및 검증 경위는
+[Hazard-Awareness Ablation](docs/hazard-aware-ablation.md) 참고).
+
+| 시나리오 | 인원 | 정적 유도등 생존율 | A\* 생존율 | PPO 생존율 | 정적 Step | A\* Step | PPO Step |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| S1 기본 탈출 | 20명 | 99.8±0.9 | 99.8±0.9 | **99.8±0.9** | 68±15 | 79±18 | **63±16** |
+| S2 EXIT A 위협 | 40명 | 59.0±16.8 | 54.4±22.0 | **85.7±6.1**‡ | 71±15 | 76±17 | 90±19 |
+| S3 진입로 차단 | 40명 | 57.8±12.1 | 60.5±14.3 | **88.1±6.3**‡ | 58±10 | 62±14 | 78±11 |
+| S4 양방향 동시 위협 | 40명 | 50.0±25.8 | 53.0±29.1 | **66.0±31.2**‡ | 66±15 | 70±14 | 73±17 |
+| S5 EXIT B 위협 (미학습, OOD) | 40명 | 63.1±15.4 | 67.1±20.5 | **79.4±8.8**‡ | 75±12 | 84±14 | 88±18 |
+
+> ‡ paired t-test 기준 A\* 대비 통계적으로 유의(p<0.001, S4는 p=0.0008,
+> n=30, `--seed 42`로 A\*/PPO/정적 유도등이 매 에피소드 동일한 화재·시작
+> 조건을 겪도록 페어링). **S1을 제외한 전 시나리오에서 PPO 생존율이 A\*
+> 대비 유의하게 높다** — S2 +31.2%p, S3 +27.6%p, S4 +13.0%p, S5(미학습
+> OOD) +12.3%p. S1은 두 방법 다 ~100%에 수렴하는 천장 효과(ceiling
+> effect)라 유의성 검정이 성립하지 않는다(분산이 0에 가까움).
+
+**속도-생존율 트레이드오프**: 정적 유도등과 A\*는 둘 다 화재를 무시하고
+최단경로만 따르므로 서로 근접한 결과를 보이며, Step 수는 오히려 PPO보다
+적다(S2/S3/S5) — 화재를 무시하고 직진하니 살아남는 사람은 더 빨리 나오지만
+그만큼 더 많이 죽는다. PPO는 시간을 약간 더 쓰는 대신 생존율을 크게
+끌어올리는 트레이드오프를 학습했다.
+
+**메커니즘 — "출구 분산"이 아니라 "결단력 있는 쏠림"**: Exit Balance(양쪽
+출구 균등 사용도)와 Throughput(스텝당 처리 인원)을
+`experiments/compute_extra_metrics.py`로 분해하면, PPO의 Exit Balance는
+A\*보다 오히려 낮다(S2: 0.226 vs 0.411, S3: 0.248 vs 0.400, S4: 0.401 vs
+0.496). 대신 Throughput은 항상 A\*보다 높다(S2: 0.394 vs 0.302, S3: 0.465
+vs 0.403, S4: 0.363 vs 0.300). 즉 PPO는 F7/F8(출구 혼잡도)을 인식해 양쪽
+출구에 고르게 나누는 것이 아니라, 더 안전하거나 빠른 쪽 출구로 과감하게
+몰아 처리 효율을 극대화하는 전략을 학습했다.
+
+**S5(EXIT B 위협)는 커리큘럼 학습에 전혀 포함되지 않은 시나리오**다
+(`env_core.py`의 커리큘럼은 S1~S4까지만 진행하며 `--max-scenario 4`로
+학습 중 진급이 원천 차단되어 있다) — 정책이 한 번도 보지 못한 화재
+패턴에서의 일반화 성능을 측정하려고 의도적으로 남겨둔 out-of-distribution
+테스트다. 한 번도 학습하지 않은 시나리오에서도 A\* 대비 유의하게 높은
+생존율(+12.3%p)을 보인다는 것은 관측 공간(F1~F15)이 특정 시나리오에
+과적합되지 않고 실제로 전이(transfer)된다는 근거다.
 
 ---
 
@@ -264,12 +229,38 @@ O(N)으로 선형 증가합니다. N=20/50/100/150/200/300/500 7단계로 실측
 > PPO는 N과 무관하게 ~0.2ms로 일정(O(1) 실측 확인), A\*는 N당 약 0.35ms씩
 > 선형 증가(O(N)). **"실시간" 기준을 100ms/스텝으로 잡으면 A\*는 N≈300~310
 > 부근부터 이 기준을 넘어선다** — PPO는 이 기준을 넘길 일이 구조적으로 없다.
-> 배율은 N이 커질수록 커지므로 "38배"처럼 하나의 숫자로 요약하는 건 오해의
-> 소지가 있다 — N에 따라 10배~850배까지 벌어진다.
->
-> **정정**: 이전 버전에는 "N=200 → A\* ~2,000ms"로 적혀 있었으나 실측치는
-> 53.6ms로 37배 낮다 — 실측 없이 추정치를 적었던 오류였다. 위 표가 실제
-> 벤치마크(`experiments/exp_speed.py --n-agents`) 결과다.
+> 배율은 N이 커질수록 커지므로 "38배"처럼 하나의 숫자로 요약하지 않고 N별
+> 실측표로 제시한다(10배~850배 범위).
+
+---
+
+## A\* vs PPO 시각화 비교
+
+> `■` 빨강: 화재 | `●` 초록/파랑: 대피자 | 화살표: 유도등 방향
+
+### S1 — 기본 탈출 (20명, 고정 화재)
+
+| A\* (Pure, 표 3과 동일 구성) | PPO |
+| :---: | :---: |
+| ![S1 A*](stage2/result/visualize/s1_astar_ep1/episode.gif) | ![S1 PPO](stage2/result/visualize/s1_model_ep1/episode.gif) |
+
+### S2 — EXIT A 위협 (40명, 우측 구역 화재)
+
+| A\* (Pure, 표 3과 동일 구성) | PPO |
+| :---: | :---: |
+| ![S2 A*](stage2/result/visualize/s2_astar_ep1/episode.gif) | ![S2 PPO](stage2/result/visualize/s2_model_ep1/episode.gif) |
+
+### S3 — 진입로 차단 (40명, EXIT A 접근로 화재)
+
+| A\* (Pure, 표 3과 동일 구성) | PPO |
+| :---: | :---: |
+| ![S3 A*](stage2/result/visualize/s3_astar_ep1/episode.gif) | ![S3 PPO](stage2/result/visualize/s3_model_ep1/episode.gif) |
+
+### S4 — 양방향 동시 위협 (40명, 출구 A·B 구역 화재)
+
+| A\* (Pure, 표 3과 동일 구성) | PPO |
+| :---: | :---: |
+| ![S4 A*](stage2/result/visualize/s4_astar_ep1/episode.gif) | ![S4 PPO](stage2/result/visualize/s4_model_ep1/episode.gif) |
 
 ---
 
@@ -287,28 +278,26 @@ python gridcell_extract.py
 # Stage 2 작업 디렉토리
 cd stage2
 
-# PPO 학습 (커리큘럼 S1→S4 자동 진급)
-python train_ppo_grid.py --mode train --steps 3000000
+# PPO 학습 (커리큘럼 S1→S4 자동 진급, S5는 --max-scenario로 제외)
+python ppo/ppo_train.py --mode train --people 40 --steps 3500000 --max-scenario 4
 
-# 전체 시나리오 비교 실험 (표 3)
-python experiments/exp1_compare.py
+# 시드 페어링 + 정적 유도등 포함 전체 비교 (표 3 재현)
+python experiments/exp1_compare.py --scenarios 1 2 3 4 5 --episodes 30 --seed 42 --include-static
 
-# 추론 속도 비교 (그림 5)
-python experiments/exp_speed.py
+# 추론 속도 비교 (그림 5, N 스케일링)
+python experiments/exp_speed.py --n-agents 200
 
 # 에피소드 GIF 시각화 (그림 6)
 python experiments/exp3_visualize.py
 
-# A* 베이스라인 테스트
-python baselines/astar_baseline.py --all-scenarios --episodes 30
-python baselines/astar_simple_baseline.py --all-scenarios --episodes 30
-python baselines/astar_real.py --all-scenarios --episodes 30
+# A* 베이스라인 단독 테스트
+python baselines/astar_baseline.py --all-scenarios --episodes 30          # Hazard-aware
+python baselines/astar_simple_baseline.py --all-scenarios --episodes 30   # Simple (화재 무시)
+python baselines/astar_real.py --all-scenarios --episodes 30              # Pure (화재 무시)
+python baselines/static_signage_baseline.py --all-scenarios --episodes 30 # 정적 유도등
 
-# 정적 유도등 베이스라인 (이 분야 표준 비교군)
-python baselines/static_signage_baseline.py --all-scenarios --episodes 30
-
-# 시드 페어링 + 정적 유도등 포함 전체 비교 (표 3 재현)
-python experiments/exp1_compare.py --scenarios 1 2 3 4 --episodes 30 --seed 42 --include-static
+# 보조 평가지표 (Exit Balance / Throughput / Path Efficiency)
+python experiments/compute_extra_metrics.py --scenario 4 --csv <exp1_compare.py 출력 CSV>
 
 # TensorBoard 학습 지표 확인
 tensorboard --logdir ./fire_evac_log/
@@ -328,9 +317,9 @@ Unity-FireEvacSim-pipeline/
 │   └── grid_map.npy                 # 추출된 40×25 그리드
 │
 └── stage2/
-    ├── env_core.py                  # 핵심 환경 (FireEvacEnv, 시나리오, 보상)
-    ├── train_ppo_grid.py            # PPO 커리큘럼 학습 메인 스크립트
-    ├── train_common.py              # 체크포인트·VecNormalize 유틸리티
+    ├── env_core.py                  # 핵심 환경 (FireEvacEnv, 시나리오, 보상, hazard_aware 플래그)
+    ├── train_ppo_grid.py            # 3,000차원 그리드 관측 ablation (별도 실험, 본 프로젝트 주 모델 아님)
+    ├── train_common.py              # 커리큘럼 래퍼·체크포인트·VecNormalize 유틸리티
     ├── unity_interface.py           # Python ↔ Unity 3D 연동 인터페이스
     ├── record_episode.py            # 에피소드 기록 (recordings/*.jsonl 생성)
     ├── playback_server.py           # 기록된 에피소드 재생 서버
@@ -346,18 +335,19 @@ Unity-FireEvacSim-pipeline/
     ├── poster_grid.py               # 그림 4: A* vs PPO 경로 비교 그리드
     │
     ├── ppo/
-    │   └── ppo_train.py             # PPO 학습·테스트 모듈
+    │   └── ppo_train.py             # PPO 커리큘럼 학습 메인 스크립트 (F1~F15, 15차원)
     │
     ├── baselines/
-    │   ├── astar_baseline.py         # Hazard-aware A* (화재·연기·혼잡 반영)
-    │   ├── astar_simple_baseline.py  # Simple A* (화재 무시, 순수 최단거리)
-    │   ├── astar_real.py             # Pure A* (Manhattan 휴리스틱)
+    │   ├── astar_baseline.py          # Hazard-aware A* (화재·연기·혼잡 반영)
+    │   ├── astar_simple_baseline.py   # Simple A* (화재 무시, 순수 최단거리)
+    │   ├── astar_real.py              # Pure A* (Manhattan 휴리스틱, 표 3 기준)
     │   └── static_signage_baseline.py # 정적 유도등 (최초 1회 계산 후 고정, 이 분야 표준 비교군)
     │
     ├── experiments/
-    │   ├── exp1_compare.py          # 시나리오별 A* vs PPO 비교 (표 3)
-    │   ├── exp3_visualize.py        # 에피소드 GIF 시각화 (그림 6)
-    │   └── exp_speed.py             # 추론 속도 비교 (그림 5)
+    │   ├── exp1_compare.py            # 시나리오별 정적/A*/PPO 비교, 시드 페어링 (표 3)
+    │   ├── exp3_visualize.py          # 에피소드 GIF 시각화 (그림 6)
+    │   ├── exp_speed.py               # 추론 속도 비교, N 스케일링 (그림 5)
+    │   └── compute_extra_metrics.py   # Exit Balance / Throughput / Path Efficiency
     │
     ├── recordings/                  # 시나리오별 기록된 에피소드 (*.jsonl)
     ├── figures/                     # 포스터·그림용 정적 이미지
@@ -373,10 +363,36 @@ Unity-FireEvacSim-pipeline/
     └── fire_evac_log/               # TensorBoard 로그
 ```
 
-> **참고**: `stage2/model/`, `stage2/logs/`에는 RecurrentPPO·JointPPO·AutoregressivePPO로
-> 학습한 체크포인트·로그도 일부 남아 있으나, 해당 알고리즘들의 학습 소스 코드(`env_joint.py`,
-> `train_joint.py`, `autoregressive_ppo/` 등)는 이후 정리 커밋에서 삭제되어 현재는 위 PPO
-> 파이프라인만 재현 가능합니다. 세 변형을 실제로 비교 결과에 포함하려면 코드 복원이 필요합니다.
+---
+
+## 한계 및 향후 연구
+
+**단일 건물 검증**: 모든 실험이 실제 상상관 2층 평면도 하나로 수행됐다.
+Stage 1(이미지→그리드 자동 추출)이 임의의 평면도를 지원하므로 구조적으로
+다른 건물에 대한 zero-shot 일반화 검증이 가능하지만, 아직 두 번째 평면도로
+실측하지는 않았다. 다만 선행연구(Xie et al. 2025 등) 중에도 여러 건물로
+검증한 사례가 없어, 단일 건물 검증 자체가 이 분야에서 이례적인 것은
+아니다.
+
+**밀도 일반화 경계**: 커리큘럼 학습은 최대 40명까지만 진행된다. N을
+40→500까지 늘려가며 재측정한 결과, PPO는 이 범위 안에서 A\* 대비 생존율
+우위를 유지하지만 그 폭은 꾸준히 줄어든다(N=40: +15.6%p → N=200: +7.4%p).
+N=500까지도 역전은 관측되지 않았으나, 우위가 계속 줄어드는 추세로 볼 때
+학습 밀도(≤40명)를 크게 벗어난 배포에는 주의가 필요하다 — "PPO는 O(1)
+속도를 언제나 보장하지만, 생존율 품질은 학습 밀도 범위 안에서 가장
+신뢰할 수 있다."
+
+**재현 불가능한 아키텍처 변형**: `stage2/model/`, `stage2/logs/`에는
+RecurrentPPO·JointPPO·AutoregressivePPO로 학습한 체크포인트·로그가 일부
+남아 있으나, 해당 소스 코드는 정리 과정에서 삭제됐다(각 변형 모두
+30시간 이상 학습해도 수렴하지 않아 폐기됨). 이 결과물들은 현재 재현
+불가능하며, 표 3 등 어떤 비교에도 포함하지 않았다.
+
+**Raw 데이터셋**: 화재·군중 실측 데이터는 윤리적·현실적으로 수집이
+불가능해 사용하지 않았다 — 이는 이 분야(RL 기반 화재/군중 대피)의 표준
+관행이며, 선행연구 4편 모두 동일하다. 군중 물리 모델(Fruin 1971, Helbing
+2000)을 검증할 수 있는 실측 보행자 데이터는 별도로 공개돼 있다(상세는
+[시뮬레이션 파라미터 근거표](docs/simulation-parameter-justification.md)).
 
 ---
 
@@ -384,7 +400,7 @@ Unity-FireEvacSim-pipeline/
 
 - [KCI 저널 게재를 위한 보완 사항 분석](docs/kci-submission-gap-analysis.md)
 - [시뮬레이션 파라미터 근거표](docs/simulation-parameter-justification.md) — raw 데이터셋 부재를 문헌 근거로 방어하는 문서
-- [Hazard-Awareness Ablation](docs/hazard-aware-ablation.md) — "화재 무시" 베이스라인이 실제로는 화재를 회피하던 버그와 수정 전후 비교
+- [Hazard-Awareness Ablation](docs/hazard-aware-ablation.md) — "화재 무시" 베이스라인이 실제로는 화재를 회피하던 버그와 수정 전후 비교, N 스케일링·Exit Balance 후속 분석
 
 ## 참고 문헌
 
