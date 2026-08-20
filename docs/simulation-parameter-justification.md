@@ -46,13 +46,40 @@
 - **민감도 분석(sensitivity analysis)**: `PANIC_FIRE_DIST`·`PANIC_RANDOM_MAX`를
   ±30~50% 범위에서 흔들어 표 3 결과(생존율·완료 시간)가 질적으로 안정적인지 확인.
   결과가 파라미터 선택에 민감하지 않다는 것을 보이면, 정확한 실측값이 없어도
-  결론의 강건성(robustness)을 주장할 수 있다 — **raw 데이터 없이 이 문제를 해결하는
-  가장 실질적인 방법**이며 GPU 없이 로컬 CPU로도 수행 가능하다.
+  결론의 강건성(robustness)을 주장할 수 있다 — GPU 없이 로컬 CPU로도 수행 가능하다.
 - 3번 카테고리(순수 설계값)는 "문헌 근거"라고 주장하지 않고 "시뮬레이션 설계
   선택"이라고 명시하는 것 자체가 정직한 대응이다 — 이 문서가 이미 그 역할을 한다.
+
+## "raw 데이터셋이 아예 없어도 되는가?" — 실은 있다
+
+화재 상황 자체의 raw 데이터(실제 화재 대피 영상·센서 로그)는 윤리적으로 수집이
+불가능하지만, **이 프로젝트가 이미 인용 중인 군중 물리 모델(Fruin, Helbing)을
+검증하는 데 쓸 수 있는 실측 보행자 데이터는 실제로 공개돼 있다** — raw 데이터가
+"전혀 없다"는 전제 자체가 정확하지 않다.
+
+- **[Pedestrian Dynamics Data Archive](https://ped.fz-juelich.de/extda)**
+  (Forschungszentrum Jülich, CC BY-SA 4.0) — 통제된 실험실 조건에서 촬영한 실제
+  보행자 이동 영상 + PeTrack으로 추출한 정밀 궤적 데이터. 밀도·속도·흐름을 임의
+  시점·위치에서 계산할 수 있어, `DENSITY_SLOW_MAX=0.80`(밀도-속도 감소 곡선)을
+  Fruin의 1971년 수치가 아니라 **최신 실측 데이터로 직접 재검증**하는 데 쓸 수 있다.
+  무료 공개, 별도 승인 절차 없음.
+- Xie, F. et al. (2025). *Dense Crowd Dynamics and Pedestrian Trajectories: A
+  Multiscale Field Dataset from the Festival of Lights in Lyon*. **Scientific
+  Data** (Nature). 실제 대규모 행사에서 촬영한 밀집 군중 궤적 데이터 — 화재
+  상황은 아니지만 고밀도 병목 상황(EXIT_CAPACITY/CELL_CAPACITY 병목 실험과
+  직접 관련)의 실측 검증에 쓸 수 있다.
+
+**결론**: "raw 데이터가 없다"가 아니라 **"화재 데이터는 없지만, 그 화재
+시뮬레이션이 의존하는 군중 물리 모델을 검증할 실측 데이터는 있다"**로 정정해야
+한다. 다음 단계로 제안: Jülich 아카이브에서 `DENSITY_RADIUS`/`DENSITY_SLOW_MAX`에
+대응하는 밀도-속도 실험 데이터셋 1~2개를 받아, 이 프로젝트의 `_effective_speed()`
+함수가 실측 곡선과 얼마나 가까운지 비교하는 절을 논문에 추가 — raw 데이터 부재를
+정면으로 반박하는 가장 강력한 근거가 된다.
 
 ## 참고 문헌
 
 - Fruin, J. J. (1971). *Pedestrian Planning and Design*. Metropolitan Association of Urban Designers.
 - Helbing, D., Farkas, I., & Vicsek, T. (2000). Simulating dynamical features of escape panic. *Nature*, 407, 487–490.
 - Henderson, L. F. (1974). On the fluid mechanics of human crowd motion. *Transportation Research*, 8(6), 509–515.
+- Forschungszentrum Jülich, IAS-7. *Pedestrian Dynamics Data Archive*. https://ped.fz-juelich.de/extda (CC BY-SA 4.0).
+- Xie, F. et al. (2025). Dense Crowd Dynamics and Pedestrian Trajectories: A Multiscale Field Dataset from the Festival of Lights in Lyon. *Scientific Data*, 12.
