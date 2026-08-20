@@ -236,31 +236,37 @@ O(N)으로 선형 증가합니다. N=20/50/100/150/200/300/500 7단계로 실측
 
 ## A\* vs PPO 시각화 비교
 
-> `■` 빨강: 화재 | `●` 초록/파랑: 대피자 | 화살표: 유도등 방향
+> `■` 빨강: 화재 | `●` 초록/파랑: 대피자 | 화살표: 유도등 방향 | A\*·PPO를 한 이미지에
+> 나란히 비교(`make_comparison_gifs_2.py` 생성, seed=42로 표 3과 동일 조건)
 
 ### S1 — 기본 탈출 (20명, 고정 화재)
 
-| A\* (Pure, 표 3과 동일 구성) | PPO |
-| :---: | :---: |
-| ![S1 A*](stage2/result/visualize/s1_astar_ep1/episode.gif) | ![S1 PPO](stage2/result/visualize/s1_model_ep1/episode.gif) |
+![S1 비교](stage2/result/visualize/comparison_gif/s1_comparison_seed42.gif)
 
 ### S2 — EXIT A 위협 (40명, 우측 구역 화재)
 
-| A\* (Pure, 표 3과 동일 구성) | PPO |
-| :---: | :---: |
-| ![S2 A*](stage2/result/visualize/s2_astar_ep1/episode.gif) | ![S2 PPO](stage2/result/visualize/s2_model_ep1/episode.gif) |
+![S2 비교](stage2/result/visualize/comparison_gif/s2_comparison_seed42.gif)
 
 ### S3 — 진입로 차단 (40명, EXIT A 접근로 화재)
 
-| A\* (Pure, 표 3과 동일 구성) | PPO |
-| :---: | :---: |
-| ![S3 A*](stage2/result/visualize/s3_astar_ep1/episode.gif) | ![S3 PPO](stage2/result/visualize/s3_model_ep1/episode.gif) |
+![S3 비교](stage2/result/visualize/comparison_gif/s3_comparison_seed42.gif)
 
 ### S4 — 양방향 동시 위협 (40명, 출구 A·B 구역 화재)
 
-| A\* (Pure, 표 3과 동일 구성) | PPO |
-| :---: | :---: |
-| ![S4 A*](stage2/result/visualize/s4_astar_ep1/episode.gif) | ![S4 PPO](stage2/result/visualize/s4_model_ep1/episode.gif) |
+![S4 비교](stage2/result/visualize/comparison_gif/s4_comparison_seed42.gif)
+
+> **(업데이트됨, 2026-08-20)**: 이 GIF 내 캡션은 "덜 위험한 출구로 균등 분산"이라고
+> 적혀 있으나, 이후 Exit Balance 실측(위 실험 결과 절 참고)으로 정정됨 — 실제로는
+> "균등 분산"이 아니라 "더 안전한 쪽으로 결단력 있게 몰아 처리 효율을 높이는" 전략이다.
+> GIF는 재생성 전까지 구버전 캡션 그대로 유지한다.
+
+### S5 — EXIT B 위협 (40명, 미학습 OOD)
+
+![S5 비교](stage2/result/visualize/comparison_gif/s5_comparison_seed42.gif)
+
+> **(업데이트됨, 2026-08-20)**: GIF 내부 제목은 "중앙 차단"으로 표시되지만, 이 문서
+> 전반의 "S5"는 `env_core.SCENARIO_CONFIGS[5]`("EXIT B 위협")를 가리킨다 — 재생성
+> 전까지 GIF 자체의 표시 제목은 구버전 그대로다.
 
 ---
 
