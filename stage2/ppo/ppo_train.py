@@ -42,7 +42,7 @@ LOG_DIR    = os.path.join(BASE_DIR, "logs",   "ppo")
 # 학습
 # ══════════════════════════════════════════════
 def train(person_counts=None, total_timesteps=300_000,
-          n_envs=None, bc_demo_steps=0, bc_s4_steps=0, bc_epochs=10):
+          n_envs=None, bc_demo_steps=0, bc_s4_steps=0, bc_epochs=10, max_scenario=None):
     import torch
 
     if person_counts is None:
@@ -76,7 +76,7 @@ def train(person_counts=None, total_timesteps=300_000,
         if ckpt_path and ckpt_steps < total_timesteps:
             print(f"\n{'─'*62}\n체크포인트 이어서 학습 "
                   f"({n}명 | {ckpt_steps:,} → {total_timesteps:,} steps)\n{'─'*62}")
-            vec_env = make_vec_env(n_envs=n_envs, n_agents=n)
+            vec_env = make_vec_env(n_envs=n_envs, n_agents=n, max_scenario=max_scenario)
             if os.path.exists(vnorm_ckpt):
                 vec_env = VecNormalize.load(vnorm_ckpt, vec_env.venv)
                 vec_env.training = True
@@ -87,7 +87,7 @@ def train(person_counts=None, total_timesteps=300_000,
         else:
             print(f"\n{'─'*62}\n커리큘럼 학습 시작 "
                   f"({n}명 기준, 이후 시나리오 인원수 자동 적용)\n{'─'*62}")
-            vec_env = make_vec_env(n_envs=n_envs, n_agents=n)
+            vec_env = make_vec_env(n_envs=n_envs, n_agents=n, max_scenario=max_scenario)
             model = PPO(
                 "MlpPolicy", vec_env,
                 device          = device,
@@ -167,6 +167,9 @@ if __name__ == "__main__":
                         help="BC 데모 수집 스텝 (0=비활성화)")
     parser.add_argument("--bc-s4-steps",   type=int, default=0)
     parser.add_argument("--bc-epochs",     type=int, default=10)
+    parser.add_argument("--max-scenario",  type=int, default=None,
+                        help="커리큘럼 진급 상한 (예: 4 → S5는 절대 학습 안 함, "
+                             "OOD 일반화 테스트로 보호). 미지정 시 전체 시나리오까지 진급")
     args = parser.parse_args()
 
     if args.mode == "check":
@@ -190,6 +193,7 @@ if __name__ == "__main__":
             bc_demo_steps  = args.bc_steps,
             bc_s4_steps    = args.bc_s4_steps,
             bc_epochs      = args.bc_epochs,
+            max_scenario   = args.max_scenario,
         )
 
     elif args.mode == "test":
