@@ -122,7 +122,8 @@ def run_test(scenario: int, n_agents: int = 10, n_episodes: int = 30,
 
     records = []
     for ep in range(n_episodes):
-        env = FireEvacEnv(scenario=scenario, n_agents=n_agents, render_mode=render_mode)
+        env = FireEvacEnv(scenario=scenario, n_agents=n_agents, render_mode=render_mode,
+                          hazard_aware=False)  # 정적 신호는 화재를 감지·회피하지 않는다
         obs, info = env.reset()
 
         total_r = 0.0
