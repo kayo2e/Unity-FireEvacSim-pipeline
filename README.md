@@ -388,6 +388,20 @@ N=500까지도 역전은 관측되지 않았으나, 우위가 계속 줄어드�
 속도를 언제나 보장하지만, 생존율 품질은 학습 밀도 범위 안에서 가장
 신뢰할 수 있다.
 
+**피처 공간(F1~F15) 최적화 미검증**: 관측 벡터 15차원은 초기 설계 이후 재검토
+없이 그대로 쓰이고 있다. F7/F8(출구 근접 혼잡도)이 A\* 대비 우위의 핵심
+메커니즘이라는 건 확인했지만(위 실험 결과 절), 나머지 피처들이 실제로 정책
+성능에 기여하는지, 서로 중복되는 정보를 담고 있진 않은지는 정량 검증한 적이
+없다. 특히 F1/F2(위협)와 F14/F15(위협 변화율), F3(출구 선호 비율)와
+F10/F11(평균 거리)은 겹치는 정보를 담고 있을 가능성이 있다. Kim & Ha(2020)는
+observation dropout·탐색 기반 최적화로 불필요한 관측 채널을 제거해도 정책
+성능이 유지되거나 개선됨을 보였고, 최근 군중 대피 MARL 연구들은 전역 상태
+대신 국소 관측(localized observation)으로 계산 부담을 줄이는 방향을 택하는
+경우가 많다. 본 프로젝트의 "전역 요약 통계 15차원" 설계는 이런 최적화를
+시도한 적이 없고, 이게 명시적인 한계다. permutation 기반 피처 중요도 측정부터
+시작하는 구체적인 다음 단계는 [피처 공간 최적화
+계획](docs/feature-space-optimization-plan.md)에 정리해뒀다.
+
 **재현 불가능한 아키텍처 변형**: `stage2/model/`, `stage2/logs/`에는
 RecurrentPPO·JointPPO·AutoregressivePPO로 학습한 체크포인트·로그가 일부
 남아 있으나, 해당 소스 코드는 정리 과정에서 삭제됐다(각 변형 모두
@@ -407,6 +421,7 @@ RecurrentPPO·JointPPO·AutoregressivePPO로 학습한 체크포인트·로그�
 - [KCI 저널 게재를 위한 보완 사항 분석](docs/kci-submission-gap-analysis.md)
 - [시뮬레이션 파라미터 근거표](docs/simulation-parameter-justification.md): raw 데이터셋 부재를 문헌 근거로 방어하는 문서
 - [Hazard-Awareness Ablation](docs/hazard-aware-ablation.md): "화재 무시" 베이스라인이 실제로는 화재를 회피하던 버그와 수정 전후 비교, N 스케일링·Exit Balance 후속 분석
+- [피처 공간(F1~F15) 최적화 계획](docs/feature-space-optimization-plan.md): 관측 벡터 중복성 검증이 안 된 한계와 permutation 중요도 측정부터 시작하는 다음 단계 계획
 
 ## 참고 문헌
 
@@ -415,6 +430,7 @@ RecurrentPPO·JointPPO·AutoregressivePPO로 학습한 체크포인트·로그�
 - [3] C.-Z. Xie et al., "Coordinating Dynamic Signage for Evacuation Guidance: A Multi-Agent Reinforcement Learning Approach Integrating Mesoscopic Crowd Modeling and Fire Propagation," *Chaos, Solitons & Fractals*, 2025.
 - [4] D. Xu, X. Huang, J. Mango, X. Li, & Z. Li, "Simulating multi-exit evacuation using deep reinforcement learning," *Transactions in GIS*, 2021.
 - [5] Y. Zhang, Z. Chai, & G. Lykotrafitis, "Deep reinforcement learning with a particle dynamics environment applied to emergency evacuation of a room with obstacles," *Physica A*, 571, 2021.
+- [6] J. T. Kim & S. Ha, "Observation Space Matters: Benchmark and Optimization Algorithm," *arXiv:2011.00756*, 2020.
 - Fruin, J. J. (1971). *Pedestrian Planning and Design*. Metropolitan Association of Urban Designers.
 - Helbing, D., Farkas, I., & Vicsek, T. (2000). Simulating dynamical features of escape panic. *Nature*, 407, 487–490.
 - Henderson, L. F. (1974). On the fluid mechanics of human crowd motion. *Transportation Research*, 8(6), 509–515.
