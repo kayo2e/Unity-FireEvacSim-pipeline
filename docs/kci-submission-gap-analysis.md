@@ -86,7 +86,7 @@ DOI 발급, (c) LICENSE 파일 추가가 필요하다. 이번 세션에서 커�
 |---|---|---|---|
 | 1 | 통계적 유의성 검정 추가 (표 3) | 낮음 | **S4 완료**(seed 페어링 + paired t-test/Wilcoxon) — 나머지 시나리오는 동일 방식으로 재측정 필요 |
 | 2 | 관련 연구 절 작성 | 중간 | **완료** — README `## 관련 연구` 참고 |
-| 3 | 시뮬레이션 파라미터 근거표 (Fruin/Helbing 대응) | 낮음 | **완료** — [`docs/simulation-parameter-justification.md`](simulation-parameter-justification.md) |
+| 3 | 시뮬레이션 파라미터 근거표 (Fruin/Helbing 대응) | 낮음 | **완료** — [`docs/simulation-parameter-justification.md`](simulation-parameter-justification.md). 실측 데이터 검증 확장은 **교수님 논의 대기** |
 | 4 | 추가 평면도 1~2개로 일반화 검증 | 중간~높음 | 미착수 — Stage 1 파이프라인은 이미 지원 |
 | 5 | orphan 모델/로그 정리 또는 코드 복구 | 낮음 | 미착수 — 포함 여부부터 결정 필요 |
 | 6 | 코드/데이터 아카이빙 (release + DOI + LICENSE) | 낮음 | 미착수 — 제출 직전에 1회 수행 |
