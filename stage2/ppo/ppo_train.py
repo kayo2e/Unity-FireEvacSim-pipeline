@@ -42,7 +42,8 @@ LOG_DIR    = os.path.join(BASE_DIR, "logs",   "ppo")
 # 학습
 # ══════════════════════════════════════════════
 def train(person_counts=None, total_timesteps=300_000,
-          n_envs=None, bc_demo_steps=0, bc_s4_steps=0, bc_epochs=10, max_scenario=None):
+          n_envs=None, bc_demo_steps=0, bc_s4_steps=0, bc_epochs=10, max_scenario=None,
+          ent_coef=0.05):
     import torch
 
     if person_counts is None:
@@ -98,7 +99,7 @@ def train(person_counts=None, total_timesteps=300_000,
                 gamma           = 0.99,
                 learning_rate   = 3e-4,
                 clip_range      = 0.2,
-                ent_coef        = 0.05,
+                ent_coef        = ent_coef,
                 max_grad_norm   = 0.5,
                 policy_kwargs   = dict(net_arch=[256, 256]),
                 tensorboard_log = LOG_DIR,
@@ -170,6 +171,10 @@ if __name__ == "__main__":
     parser.add_argument("--max-scenario",  type=int, default=None,
                         help="커리큘럼 진급 상한 (예: 4 → S5는 절대 학습 안 함, "
                              "OOD 일반화 테스트로 보호). 미지정 시 전체 시나리오까지 진급")
+    parser.add_argument("--ent-coef",      type=float, default=0.05,
+                        help="엔트로피 계수 — Andrychowicz et al. 2020은 연속제어에서 "
+                             "엔트로피 보너스가 도움 안 된다고 보고, 기본값 0.05가 과도한 "
+                             "탐색을 유발할 수 있음(조사 결과 9-3). 감사용 실험은 0.0 권장")
     args = parser.parse_args()
 
     if args.mode == "check":
@@ -194,6 +199,7 @@ if __name__ == "__main__":
             bc_s4_steps    = args.bc_s4_steps,
             bc_epochs      = args.bc_epochs,
             max_scenario   = args.max_scenario,
+            ent_coef       = args.ent_coef,
         )
 
     elif args.mode == "test":
