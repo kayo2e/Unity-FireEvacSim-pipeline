@@ -59,19 +59,20 @@ observation-space 최적화)와 최근 군중 대피 MARL 연구의 localized ob
 재학습 비교)은 `docs/feature-space-optimization-plan.md`에 정리만 해두고
 **아직 실행하지 않았다**.
 
-**10. PPO 하이퍼파라미터 문헌 대조 감사 (Phase 5c, 진행 중)**: Andrychowicz et
+**10. PPO 하이퍼파라미터 문헌 대조 감사 (Phase 5c): 완료**. Andrychowicz et
 al. (2020)이 연속제어에서 엔트로피 보너스의 이득 근거를 찾지 못했다고 보고한
 점에 착안, `ent_coef=0.05`(기존 기본값) vs `0.0`을 같은 조건(40만 스텝,
-`--max-scenario 4`, fresh 학습)으로 비교 중. ent_coef=0.0 결과: S4 생존율
-59.6±34.5%(n=30). ent_coef=0.05 fresh 컨트롤은 아직 실행/비교 전이라 결론
-보류(공정 비교를 위해 두 값 모두 같은 40만 스텝 기준이어야 한다. production
-모델의 66.0±31.2%는 3,500,000스텝으로 학습량이 달라 직접 비교 불가).
+`--max-scenario 4`, fresh 학습)으로 비교했다. 결과: ent_coef=0.0 S4 생존율
+59.6±34.5%, ent_coef=0.05 S4 생존율 65.4±28.2%(둘 다 n=30). 같은 스텝 수
+기준으로 0.05가 오히려 5.8%p 높지만 Welch's t-test 근사 검정으로는 유의하지
+않다(t≈0.71). "엔트로피를 낮추면 개선된다"는 가설은 지지되지 않아 기존
+기본값 `ent_coef=0.05`를 그대로 유지하기로 했다. production 모델은 실험
+중 두 차례 임시로 덮어써졌으나 매번 `/tmp/fireevac_model_backup/`에서
+즉시 복원해 최종적으로는 원상태다. 상세: `docs/hazard-aware-ablation.md`
+후속 분석 4.
 
 ### Next
 
-- Phase 5c 마무리: ent_coef=0.05 fresh 컨트롤 실행 결과 확인 → 두 fresh 결과
-  비교 → production 모델(`fire_evac_model_40ppl.zip`)이 실험용 저장으로
-  덮어써지지 않았는지 재확인(백업: `/tmp/fireevac_model_backup/`).
 - Phase 5b: 커리큘럼 학습 유무 ablation (같은 스텝 수·시드로 비교).
 - Phase 5: PPO에 경량 모듈(Mamba류 지역성 요약 레이어) 추가 실험.
 - Phase 6: Stage 1 그리드 추출 정확도·강건성 정량화.
