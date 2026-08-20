@@ -43,7 +43,7 @@ LOG_DIR    = os.path.join(BASE_DIR, "logs",   "ppo")
 # ══════════════════════════════════════════════
 def train(person_counts=None, total_timesteps=300_000,
           n_envs=None, bc_demo_steps=0, bc_s4_steps=0, bc_epochs=10, max_scenario=None,
-          ent_coef=0.05):
+          ent_coef=0.05, start_scenario=1):
     import torch
 
     if person_counts is None:
@@ -77,7 +77,8 @@ def train(person_counts=None, total_timesteps=300_000,
         if ckpt_path and ckpt_steps < total_timesteps:
             print(f"\n{'─'*62}\n체크포인트 이어서 학습 "
                   f"({n}명 | {ckpt_steps:,} → {total_timesteps:,} steps)\n{'─'*62}")
-            vec_env = make_vec_env(n_envs=n_envs, n_agents=n, max_scenario=max_scenario)
+            vec_env = make_vec_env(n_envs=n_envs, n_agents=n, max_scenario=max_scenario,
+                                   start_scenario=start_scenario)
             if os.path.exists(vnorm_ckpt):
                 vec_env = VecNormalize.load(vnorm_ckpt, vec_env.venv)
                 vec_env.training = True
@@ -88,7 +89,8 @@ def train(person_counts=None, total_timesteps=300_000,
         else:
             print(f"\n{'─'*62}\n커리큘럼 학습 시작 "
                   f"({n}명 기준, 이후 시나리오 인원수 자동 적용)\n{'─'*62}")
-            vec_env = make_vec_env(n_envs=n_envs, n_agents=n, max_scenario=max_scenario)
+            vec_env = make_vec_env(n_envs=n_envs, n_agents=n, max_scenario=max_scenario,
+                                   start_scenario=start_scenario)
             model = PPO(
                 "MlpPolicy", vec_env,
                 device          = device,
@@ -172,9 +174,14 @@ if __name__ == "__main__":
                         help="커리큘럼 진급 상한 (예: 4 → S5는 절대 학습 안 함, "
                              "OOD 일반화 테스트로 보호). 미지정 시 전체 시나리오까지 진급")
     parser.add_argument("--ent-coef",      type=float, default=0.05,
-                        help="엔트로피 계수 — Andrychowicz et al. 2020은 연속제어에서 "
+                        help="엔트로피 계수. Andrychowicz et al. 2020은 연속제어에서 "
                              "엔트로피 보너스가 도움 안 된다고 보고, 기본값 0.05가 과도한 "
                              "탐색을 유발할 수 있음(조사 결과 9-3). 감사용 실험은 0.0 권장")
+    parser.add_argument("--start-scenario", type=int, default=1,
+                        help="커리큘럼 진급 없이 이 시나리오부터 고정으로 학습 시작 "
+                             "(예: --start-scenario 4 --max-scenario 4 → S4만으로 "
+                             "처음부터 끝까지 학습, 커리큘럼 ablation용). 기본값 1은 "
+                             "기존 커리큘럼 동작 그대로")
     args = parser.parse_args()
 
     if args.mode == "check":
@@ -200,6 +207,7 @@ if __name__ == "__main__":
             bc_epochs      = args.bc_epochs,
             max_scenario   = args.max_scenario,
             ent_coef       = args.ent_coef,
+            start_scenario = args.start_scenario,
         )
 
     elif args.mode == "test":
