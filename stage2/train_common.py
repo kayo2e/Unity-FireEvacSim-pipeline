@@ -57,15 +57,19 @@ def find_latest_checkpoint(ckpt_dir: str, name_prefix: str):
 # ══════════════════════════════════════════════
 class EvacCurriculumWrapper(gym.Wrapper):
     def __init__(self, n_agents: int = None, threshold: float = 0.90, window: int = 50,
-                 max_scenario: int = None):
-        self.current_scenario = 1
+                 max_scenario: int = None, start_scenario: int = 1):
+        # start_scenario: 커리큘럼 진급 없이 특정 시나리오에서 바로 시작하고 싶을 때
+        # 쓴다(예: start_scenario=max_scenario로 두면 승급 조건이 항상 거짓이 되어
+        # 사실상 커리큘럼을 끄고 그 시나리오만으로 처음부터 끝까지 학습한다). 커리큘럼
+        # 효과 검증(ablation)용 옵션이며 기본값 1은 기존 동작을 그대로 보존한다.
+        self.current_scenario = start_scenario
         # max_scenario: 커리큘럼이 진급할 수 있는 최고 시나리오 번호. None이면 제한 없음
-        # (SCENARIO_CONFIGS 전체) — S5(EXIT B 위협)처럼 의도적으로 학습에서 제외해
+        # (SCENARIO_CONFIGS 전체). S5(EXIT B 위협)처럼 의도적으로 학습에서 제외해
         # OOD 일반화 테스트로 남겨두려는 시나리오가 있으면 반드시 지정해야 오염을 막는다.
         self.max_scenario = max_scenario if max_scenario is not None else len(SCENARIO_CONFIGS)
-        s1_n = SCENARIO_CONFIGS[1]["n_agents"] if n_agents is None else n_agents
-        self.n_agents = s1_n
-        env = FireEvacEnv(scenario=1, n_agents=s1_n)
+        start_n = SCENARIO_CONFIGS[start_scenario]["n_agents"] if n_agents is None else n_agents
+        self.n_agents = start_n
+        env = FireEvacEnv(scenario=start_scenario, n_agents=start_n)
         super().__init__(env)
         self.threshold = threshold
         self.window    = window
@@ -212,16 +216,18 @@ class EvacTrainCallback(BaseCallback):
 # ══════════════════════════════════════════════
 # 환경 팩토리
 # ══════════════════════════════════════════════
-def make_env(seed: int, n_agents: int = None, max_scenario: int = None):
+def make_env(seed: int, n_agents: int = None, max_scenario: int = None, start_scenario: int = 1):
     def _init():
-        env = EvacCurriculumWrapper(n_agents=n_agents, max_scenario=max_scenario)
+        env = EvacCurriculumWrapper(n_agents=n_agents, max_scenario=max_scenario,
+                                     start_scenario=start_scenario)
         env.reset(seed=seed)
         return env
     return _init
 
 
-def make_vec_env(n_envs: int, n_agents: int = None, max_scenario: int = None):
-    env_fns = [make_env(seed=i, n_agents=n_agents, max_scenario=max_scenario) for i in range(n_envs)]
+def make_vec_env(n_envs: int, n_agents: int = None, max_scenario: int = None, start_scenario: int = 1):
+    env_fns = [make_env(seed=i, n_agents=n_agents, max_scenario=max_scenario,
+                         start_scenario=start_scenario) for i in range(n_envs)]
     raw = (DummyVecEnv(env_fns) if platform.system() == "Windows"
            else SubprocVecEnv(env_fns))
     return VecNormalize(raw, norm_obs=True, norm_reward=False, clip_obs=10.0)
