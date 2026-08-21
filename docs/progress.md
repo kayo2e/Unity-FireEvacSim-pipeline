@@ -121,3 +121,38 @@ al. (2020)이 연속제어에서 엔트로피 보너스의 이득 근거를 찾�
   "상상관 2층" 실제 면적 확인 필요.
 - 피처 공간 최적화: `docs/feature-space-optimization-plan.md`의 task2 계획
   실행. 아직 착수 전.
+
+## 2026-08-21 — 저장소 위생 정리, 커밋 히스토리 영어 재작성, Stage 1 정밀도 계획 승인
+
+### 한 일
+
+**1. GitHub Contributors에서 Claude 재등장 문제 해결**: 리포 사이드바 Contributors
+위젯이 저장소 전체 브랜치를 긁어 집계한다는 걸 확인. `main`·오늘 작업한 브랜치는
+전부 깨끗했고, 원인은 병합된 적 없는 `eval/comparison`(팀원 주요셉 계정, 자신의
+Claude Code 사용으로 생긴 `Co-Authored-By: Claude` 트레일러 5건 포함) 브랜치였다.
+`eval/comparison` 삭제 + 이미 main에 병합된 leftover 브랜치 15개도 함께 정리(18개
+→ main 1개). `gh api .../contributors`로 kayo2e 1명만 남은 것 확인. GitHub의
+Contributors 위젯 자체는 캐시가 오래 남아 화면에는 지연 반영될 수 있음(데이터는
+이미 정상).
+
+**2. 커밋 히스토리 전체를 영어로 재작성**: 기존 `CLAUDE.md`(삭제 전)는 "한국어
+관례 유지"였으나 사용자가 이번에 전체 영어 통일을 명시적으로 요청. 초기 66개
+커밋(한국어)을 `git-filter-repo` 커밋 콜백으로 번역해 재작성, 나머지 50개는 이미
+영어라 그대로 유지. Authorship·내용(트리)은 그대로, 메시지만 교체. `--force-with-lease`
+로 재푸시 완료. 재작성 후에도 Contributors·브랜치 상태 정상 확인.
+
+**3. Stage 1 벽 마스크 정밀도 개선 + 평가 계획 수립(Plan Mode)**: `base_grid_vis.jpg`
+육안 검토에서 벽 이중선·홀 결함 확인 → 원인을 `binary_img.jpg` 픽셀 단위로 직접
+진단(원본 도면이 벽 두께를 평행한 두 선으로 그리는 제도 관례, 해칭 도형 내부가
+임계값 미달로 안 채워짐). 문헌 조사(Zeng et al. 2019, CubiCasa5K, de las Heras et
+al. 2014, Liu et al. 2017 Raster-to-Vector, SLAM occupancy-grid 비교 문헌) 기반으로
+Phase 0(정밀도 개선: morphological closing + hole filling) → Phase A(이 사진 전용
+ground truth 제작) → Phase B/C/D(표준 IoU/관대한 매칭/연결성 보존율 평가) → Phase
+E(문서화) 계획을 세워 사용자 승인받음. 계획 파일:
+`~/.claude/plans/whimsical-wandering-stroustrup.md`.
+
+### Next
+
+- Stage 1 계획 Phase 0(벽 마스크 정밀도 개선)부터 착수. 각 Phase 완료 시 이
+  진행 로그에 바로 기록(세션이 끊겨도 이어갈 수 있도록).
+- 위 "Next" 목록(Phase 5, 6, 2, 8, 피처 공간 최적화)은 그대로 유효.
