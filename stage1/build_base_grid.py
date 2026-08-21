@@ -22,6 +22,50 @@ from collections import deque
 HALL, WALL, EXIT, ROOM = 0, 1, 2, 3  # env_core.py와 동일한 인코딩
 TARGET_ROWS, TARGET_COLS = 40, 25
 
+# 실제 이중선 벽 간격을 binary_img.jpg에서 직접 측정한 값(24~26px, 여러 행에서 확인).
+# 그 폭보다 살짝 크게 잡아 두 선을 하나로 메운다(Phase 0, docs/progress.md
+# 2026-08-21 항목 참고).
+WALL_GAP_CLOSE_PX = 29
+
+# 홀 채우기 최대 허용 면적(px², 1/3 리사이즈 좌표계 기준). scipy.ndimage.binary_fill_holes를
+# 그대로 쓰면 진짜 방/복도(최소 8,256px² 확인됨)까지 전부 "홀"로 오인해 벽으로 덮어버린다
+# (실측으로 확인, Phase 0 시행착오). 그보다 훨씬 작은 상한을 둬서 해칭 도형·픽토그램처럼
+# 진짜 작은 홀만 채우고 실제 통행 공간은 절대 건드리지 않는다.
+MAX_HOLE_FILL_AREA_PX = 500
+
+
+def _fill_small_holes(mask, max_area):
+    # mask: 255=wall, 0=background. 배경 연결요소 중 이미지 테두리에 안 닿고
+    # max_area보다 작은 것만 벽으로 채운다(큰 배경 = 진짜 방/복도, 절대 안 건드림).
+    bg = (mask == 0).astype(np.uint8)
+    h, w = bg.shape
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(bg, connectivity=8)
+    filled = mask.copy()
+    for i in range(1, n):
+        x, y, cw, ch, area = stats[i]
+        touches_border = x == 0 or y == 0 or x + cw == w or y + ch == h
+        if not touches_border and area <= max_area:
+            filled[labels == i] = 255
+    return filled
+
+
+def _mask_outside_building(mask):
+    # 건물 바깥(테두리 밖 여백, 요철 모양 컷아웃 등)이 벽 검출 없이 그냥 HALL로
+    # 남는 게 연결성 단절의 가장 큰 원인이었다(실측: Phase 0 후속 분석,
+    # docs/progress.md 2026-08-21 참고). 굵은 외곽선을 가장 큰 외부 컨투어로
+    # 찾아 그 내부만 건물로 인정하고, 바깥은 전부 WALL로 채운다.
+    close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    for_contour = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, close_kernel)
+    contours, _ = cv2.findContours(for_contour, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return mask
+    outline = max(contours, key=cv2.contourArea)
+    inside = np.zeros_like(mask)
+    cv2.drawContours(inside, [outline], -1, color=255, thickness=cv2.FILLED)
+    result = mask.copy()
+    result[inside == 0] = 255
+    return result
+
 
 def load_wall_mask(image_path="image.jpg"):
     # gridcell_extract.py와 동일한 벽 검출 로직 재사용(색 노이즈 제거 → 어두운 픽셀 → 벽)
@@ -58,6 +102,14 @@ def load_wall_mask(image_path="image.jpg"):
         if w < 15 and h < 15:
             continue
         clean[labels == i] = 255
+
+    # Phase 0 — 정밀도 개선.
+    # 1) 건물 바깥(테두리 밖 여백)을 WALL로 채움 — 연결성 단절의 주 원인이었다(실측 확인).
+    clean = _mask_outside_building(clean)
+    # 2) 작은 홀(픽토그램·해칭 도형 등)만 채운다. 큰 닫힘 연산(이중선 벽 간격 메우기)은
+    #    WALL_GAP_CLOSE_PX=29px로 시도했다가 출구 하나를 완전히 고립시키는 걸 실측으로
+    #    확인해 보류함(진짜 통로 폭과 구분이 안 됨) — 상세: docs/progress.md 2026-08-21.
+    clean = _fill_small_holes(clean, MAX_HOLE_FILL_AREA_PX)
     return clean
 
 
@@ -80,6 +132,29 @@ def find_exit_icons(image_path="image.jpg", min_area=500, top_k=4):
         icons.append((area, cx, cy))
     icons.sort(reverse=True)
     return icons[:top_k], img.shape[:2]  # (h, w)
+
+
+def find_door_openings(image_path="image.jpg", template_path="door_template.png",
+                        search_x_range=(350, 470), score_threshold=0.9, nms_radius_px=50):
+    # 201~209호 각 방과 복도를 잇는 문(door leaf) 기호를 템플릿 매칭으로 찾는다.
+    # 벽 색과 동일한 검은 선이라 색상으로는 못 찾고, 모양(가는 직사각형 외곽선)으로만
+    # 구분된다. 이 문 기호는 이 도면 특유의 그리기 방식이라 다른 건물 사진에는
+    # 일반화되지 않는다 — green 출구 아이콘(표준 소방 색상) 검출과 다르게 이 사진
+    # 전용 보정이다(docs/progress.md 2026-08-21 참고).
+    gray_full = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2GRAY)
+    template = cv2.cvtColor(cv2.imread(template_path), cv2.COLOR_BGR2GRAY)
+    x0, x1 = search_x_range
+    strip = gray_full[:, x0:x1]
+    res = cv2.matchTemplate(strip, template, cv2.TM_CCOEFF_NORMED)
+    ys, xs = np.where(res >= score_threshold)
+    candidates = sorted(zip(res[ys, xs].tolist(), ys.tolist(), xs.tolist()), reverse=True)
+    kept = []
+    for score, y, x in candidates:
+        if all(abs(y - ky) > nms_radius_px for _, ky, _ in kept):
+            kept.append((score, y, x))
+    th, tw = template.shape
+    doors = [(y + th // 2, x + x0 + tw // 2) for _, y, x in kept]  # 문 기호 중심(row_px, col_px)
+    return doors, gray_full.shape
 
 
 def pool_to_grid(binary_mask, target_rows, target_cols, threshold=0.05):
@@ -132,6 +207,15 @@ def build_base_grid(image_path="image.jpg"):
     wall_mask = load_wall_mask(image_path)
     grid = pool_to_grid(wall_mask, TARGET_ROWS, TARGET_COLS)
 
+    # 문 기호 위치는 셀 하나보다 작아 풀링 임계값(5%)에서 항상 WALL로 밀리므로,
+    # 검출된 위치를 강제로 HALL로 뚫어준다(Phase 0 후속, docs/progress.md 참고).
+    doors, full_hw = find_door_openings(image_path)
+    door_cells = []
+    for row_px, col_px in doors:
+        r, c = map_icon_to_grid(col_px, row_px, full_hw, TARGET_ROWS, TARGET_COLS)
+        grid[r, c] = HALL
+        door_cells.append((r, c))
+
     icons, full_hw = find_exit_icons(image_path)
     exit_cells = []
     for area, cx, cy in icons:
@@ -140,7 +224,7 @@ def build_base_grid(image_path="image.jpg"):
         exit_cells.append((r2, c2))
         grid[r2, c2] = EXIT
 
-    return grid, exit_cells, icons
+    return grid, exit_cells, icons, door_cells
 
 
 def save_visualization(grid, path="base_grid_vis.jpg", cell_px=30):
@@ -165,7 +249,7 @@ def save_visualization(grid, path="base_grid_vis.jpg", cell_px=30):
 
 
 if __name__ == "__main__":
-    grid, exits, icons = build_base_grid()
+    grid, exits, icons, doors = build_base_grid()
     np.save("base_grid.npy", grid)
     save_visualization(grid)
 
@@ -175,4 +259,5 @@ if __name__ == "__main__":
     print("cell counts:", {names[v]: c for v, c in zip(vals.tolist(), counts.tolist())})
     print(f"detected {len(icons)} green exit icons (area, cx, cy):", icons)
     print("mapped to grid cells (EXIT):", exits)
+    print(f"detected {len(doors)} door openings, forced to HALL:", doors)
     print("출력: base_grid.npy, base_grid_vis.jpg")
