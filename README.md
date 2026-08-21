@@ -410,11 +410,20 @@ Stage 1(이미지→그리드 자동 추출)이 임의의 평면도를 지원하
 검증한 사례가 없어, 단일 건물 검증 자체가 이 분야에서 이례적인 것은
 아니다.
 
-**Stage 1 추출 정확도 미검증**: 이미지에서 `grid_map.npy`를 뽑아내는 정확도를
-사람이 라벨링한 정답과 비교해 정량화한 적이 없다. 추출 오차가 Stage 2 정책
-성능에 얼마나 영향을 주는지(강건성)도 측정한 적 없다. E2E 파이프라인이
-강점이라면 이 수치가 그 강점을 뒷받침하는 핵심 근거라, 다음 단계로 계획하고
-있다.
+**Stage 1은 실제 학습에 쓰인 그리드의 출처가 아니다**: 지금 학습된 모델이
+쓰는 `env_core.BASE_GRID`는 이 사진(`stage1/image.jpg`)에서 자동 추출된 게
+아니라, Unity 에디터에서 수작업으로 만든 3D 씬을 내보낸 것이다(코드 주석
+확인). 즉 "사진 → 그리드 자동 추출 → 학습"이라는 E2E 파이프라인은 지금
+결과물 기준으로는 실제로 이어져 있지 않다. Stage 1(`build_base_grid.py`)은
+별도로 검증된 확장 경로다.
+
+이 사진 한 장에 대해 직접 만든 정답과 비교한 결과: 셀 단위 정확도(pixel
+accuracy) 76.9%, WALL IoU 63.4%, 경계 1칸 오차까지 허용하는 관대한 매칭
+기준으로는 recall 94.1%/precision 90.5%, 출구(EXIT) 검출은 recall/precision
+모두 100%. 연결성은 원래 45%(도달 가능 셀 기준)에서 건물 외곽 마스킹·문
+검출 개선을 거쳐 98.1%까지 끌어올렸다. 단순 임계값 기반 방식이라 CubiCasa5K급
+딥러닝 방법(mIoU ~87%)보다 정밀도가 낮고, 표본이 사진 1장뿐이라 오차의
+신뢰구간도 논할 수 없다. 상세: [Stage 1 추출 정확도 평가](docs/stage1-extraction-accuracy.md).
 
 **밀도 일반화 경계**: 커리큘럼 학습은 최대 40명까지만 진행된다. N을
 40→500까지 늘려가며 재측정한 결과, PPO는 이 범위 안에서 A\* 대비 생존율
@@ -475,6 +484,7 @@ RecurrentPPO·JointPPO·AutoregressivePPO로 학습한 체크포인트·로그�
 - [시뮬레이션 파라미터 근거표](docs/simulation-parameter-justification.md): raw 데이터셋 부재를 문헌 근거로 방어하는 문서
 - [Hazard-Awareness Ablation](docs/hazard-aware-ablation.md): "화재 무시" 베이스라인이 실제로는 화재를 회피하던 버그와 수정 전후 비교, N 스케일링·Exit Balance 후속 분석
 - [피처 공간(F1~F15) 최적화 계획](docs/feature-space-optimization-plan.md): 관측 벡터 중복성 검증이 안 된 한계와 permutation 중요도 측정부터 시작하는 다음 단계 계획
+- [Stage 1 추출 정확도 평가](docs/stage1-extraction-accuracy.md): 사진 1장 기준 ground truth 대비 표준 지표·관대한 매칭·연결성 보존율 평가, 문헌 대조
 
 ## 참고 문헌
 
@@ -484,6 +494,10 @@ RecurrentPPO·JointPPO·AutoregressivePPO로 학습한 체크포인트·로그�
 - [4] D. Xu, X. Huang, J. Mango, X. Li, & Z. Li, "Simulating multi-exit evacuation using deep reinforcement learning," *Transactions in GIS*, 2021.
 - [5] Y. Zhang, Z. Chai, & G. Lykotrafitis, "Deep reinforcement learning with a particle dynamics environment applied to emergency evacuation of a room with obstacles," *Physica A*, 571, 2021.
 - [6] J. T. Kim & S. Ha, "Observation Space Matters: Benchmark and Optimization Algorithm," *arXiv:2011.00756*, 2020.
+- [7] S. Zeng, X. Yang, X. Yeung, S. Fu, & W. Chun, "Deep Floor Plan Recognition Using a Multi-Task Network with Room-Boundary-Guided Attention," *ICCV*, 2019.
+- [8] A. Kalervo, J. Ylioinas, M. Häikiö, A. Karhu, & J. Kannala, "CubiCasa5K: A Dataset and an Improved Multi-Task Model for Floorplan Image Analysis," *arXiv:1904.01920*, 2019.
+- [9] L.-P. de las Heras, O. R. Terrades, S. Robles, & G. Sánchez, "Statistical segmentation and structural recognition for floor plan interpretation," *IJDAR*, 2014.
+- [10] C. Liu, J. Wu, P. Kohli, & Y. Furukawa, "Raster-to-Vector: Revisiting Floorplan Transformation," *ICCV*, 2017.
 - Fruin, J. J. (1971). *Pedestrian Planning and Design*. Metropolitan Association of Urban Designers.
 - Helbing, D., Farkas, I., & Vicsek, T. (2000). Simulating dynamical features of escape panic. *Nature*, 407, 487–490.
 - Henderson, L. F. (1974). On the fluid mechanics of human crowd motion. *Transportation Research*, 8(6), 509–515.
