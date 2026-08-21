@@ -180,8 +180,22 @@ E(문서화) 계획을 세워 사용자 승인받음. 계획 파일:
   (문 기호 템플릿), `stage1/base_grid_connectivity.jpg`(BFS 도달 불가 셀 빨간색
   시각화, 디버깅용).
 
+**5. Stage 1 Phase A~E: 완료.** `stage1/build_ground_truth.py`로 이 사진
+전용 정답(40×25, 구조적 블록 단위 근사, `image_grid_overlay.jpg`를 3등분해서
+육안으로 좌표 확인)을 만들고, `stage1/eval_extraction_accuracy.py`로 Phase
+B(표준 지표: pixel accuracy 76.9%, WALL IoU 63.4%)·Phase C(관대한 매칭
+r=1: recall 94.1%/precision 90.5%)·Phase D(연결성 보존율 67.0%, EXIT
+검출 recall/precision 100%)를 계산했다. 결과와 문헌 대조(Zeng et al. 2019,
+CubiCasa5K, de las Heras et al. 2014, Liu et al. 2017)를
+`docs/stage1-extraction-accuracy.md`에 정리하고, README의 "Stage 1 추출
+정확도 미검증" 한계 문단을 이 실측 결과로 교체했다. 이 문단에서 "지금 학습된
+모델이 쓰는 그리드는 이 사진에서 온 게 아니라 Unity 씬에서 나온 것"이라는
+사실도 명시적으로 반영했다(4번 항목에서 이미 확인된 내용, README에는 아직
+안 옮겨져 있었음). README 제목·개요의 "E2E 자동 추출" 프레이밍 자체를
+재작성할지는 더 큰 구조적 변경이라 사용자 확인 없이 건드리지 않았다.
+
 ### Next
 
-- Stage 1 Phase A(이 사진 전용 ground truth 제작)부터 이어서. Phase 0는 위
-  4번 항목으로 완료 처리.
+- Stage 1 관련 남은 선택 사항: README 제목/개요의 E2E 프레이밍을 이번 발견에
+  맞춰 재작성할지 여부(사용자 확인 필요, 아직 손 안 댐).
 - 위 "Next" 목록(Phase 5, 6, 2, 8, 피처 공간 최적화)은 그대로 유효.
