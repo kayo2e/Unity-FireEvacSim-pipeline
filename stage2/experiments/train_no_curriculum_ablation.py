@@ -36,7 +36,8 @@ from stable_baselines3.common.callbacks import CheckpointCallback, CallbackList
 from stable_baselines3.common.vec_env import VecNormalize
 
 from env_core import FireEvacEnv, SCENARIO_CONFIGS
-from train_common import BASE_DIR, EvacTrainCallback, make_vec_env, find_latest_checkpoint
+from train_common import (BASE_DIR, EvacTrainCallback, make_vec_env, find_latest_checkpoint,
+                          init_action_net_bias_to_box_mid)
 
 # 커리큘럼 버전과 완전히 분리된 저장 경로 — 기존 model/ppo/를 절대 덮어쓰지 않는다
 MODEL_DIR = os.path.join(BASE_DIR, "model", "ppo_no_curriculum")
@@ -102,13 +103,7 @@ def train(total_timesteps=3_500_000, n_envs=8, ent_coef=0.005):
         )
         # ppo_train.py와 동일한 action_net bias 초기화 (2026-09-13 수정판과
         # 동일 조건으로 맞춰야 "커리큘럼 유무"만 분리해서 비교할 수 있다)
-        action_low  = vec_env.action_space.low
-        action_high = vec_env.action_space.high
-        box_mid = (action_low + action_high) / 2.0
-        with torch.no_grad():
-            model.policy.action_net.bias.copy_(
-                torch.as_tensor(box_mid, dtype=model.policy.action_net.bias.dtype))
-        print(f"  action_net bias 초기화 -> 박스 중간값 {box_mid}")
+        init_action_net_bias_to_box_mid(model, vec_env)
         remaining = total_timesteps
         reset_num = True
 

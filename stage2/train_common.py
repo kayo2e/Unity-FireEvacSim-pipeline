@@ -216,18 +216,22 @@ class EvacTrainCallback(BaseCallback):
 # ══════════════════════════════════════════════
 # 환경 팩토리
 # ══════════════════════════════════════════════
-def make_env(seed: int, n_agents: int = None, max_scenario: int = None, start_scenario: int = 1):
+def make_env(seed: int, n_agents: int = None, max_scenario: int = None, start_scenario: int = 1,
+             curriculum_threshold: float = 0.90, curriculum_window: int = 50):
     def _init():
         env = EvacCurriculumWrapper(n_agents=n_agents, max_scenario=max_scenario,
-                                     start_scenario=start_scenario)
+                                     start_scenario=start_scenario,
+                                     threshold=curriculum_threshold, window=curriculum_window)
         env.reset(seed=seed)
         return env
     return _init
 
 
-def make_vec_env(n_envs: int, n_agents: int = None, max_scenario: int = None, start_scenario: int = 1):
+def make_vec_env(n_envs: int, n_agents: int = None, max_scenario: int = None, start_scenario: int = 1,
+                  curriculum_threshold: float = 0.90, curriculum_window: int = 50):
     env_fns = [make_env(seed=i, n_agents=n_agents, max_scenario=max_scenario,
-                         start_scenario=start_scenario) for i in range(n_envs)]
+                         start_scenario=start_scenario, curriculum_threshold=curriculum_threshold,
+                         curriculum_window=curriculum_window) for i in range(n_envs)]
     raw = (DummyVecEnv(env_fns) if platform.system() == "Windows"
            else SubprocVecEnv(env_fns))
     return VecNormalize(raw, norm_obs=True, norm_reward=False, clip_obs=10.0)
@@ -236,6 +240,30 @@ def make_vec_env(n_envs: int, n_agents: int = None, max_scenario: int = None, st
 # ══════════════════════════════════════════════
 # BC 사전학습
 # ══════════════════════════════════════════════
+def init_action_net_bias_to_box_mid(model, vec_env) -> None:
+    """새로 생성한(체크포인트 아닌) PPO 모델의 action_net.bias를 액션 박스
+    중간값으로 초기화한다.
+
+    기본 초기화는 raw mean_actions이 0 근처에서 시작하는데, exit_A/B_cost의
+    박스가 [5,50]으로 0에서 한참 떨어져 있어 raw 출력이 계속 하한(5)보다
+    낮은 채로 clip되고, clip된 영역에서는 그래디언트가 사실상 사라져 학습이
+    안 된다(2026-09-13 진단: experiments/action_causal_sweep.py + raw
+    mean_actions 확인 결과, exit_A/B_cost가 몇 번을 재학습해도 5.0에 고정되는
+    원인이 이것이었음). bias를 박스 중앙에 맞춰두면 학습 시작부터 두 방향
+    모두에 실제 그래디언트가 생긴다. 새 모델을 만드는 모든 학습 스크립트가
+    공유해야 하는 로직이라 여기 한 곳에 둔다(ppo_train.py,
+    experiments/train_no_curriculum_ablation.py에서 사용).
+    """
+    import torch
+    action_low  = vec_env.action_space.low
+    action_high = vec_env.action_space.high
+    box_mid = (action_low + action_high) / 2.0
+    with torch.no_grad():
+        model.policy.action_net.bias.copy_(
+            torch.as_tensor(box_mid, dtype=model.policy.action_net.bias.dtype))
+    print(f"  action_net bias 초기화 -> 박스 중간값 {box_mid}")
+
+
 def collect_astar_demos(n_agents: int = None, n_envs_demo: int = 4,
                         n_steps: int = 3000, s4_steps: int = 2000) -> tuple:
     env_fns    = [make_env(seed=200 + i) for i in range(n_envs_demo)]

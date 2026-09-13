@@ -4,5 +4,5 @@ __pycache__/
 .DS_Store
 stage2/model/*/checkpoints/
 stage2/model/*/checkpoints_*/
-stage2/model/ppo_original_backup/
-stage2/model/ppo/checkpoints_pre_biasfix/
+stage2/model/ppo_*backup/
+stage2/logs/
