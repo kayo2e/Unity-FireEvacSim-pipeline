@@ -31,7 +31,7 @@ from stable_baselines3.common.vec_env import VecNormalize
 from env_core import FireEvacEnv, SCENARIO_CONFIGS, verify_connectivity
 from train_common import (BASE_DIR, EvacTrainCallback, make_vec_env,
                           collect_astar_demos, pretrain_bc, test_fire_evac,
-                          find_latest_checkpoint)
+                          find_latest_checkpoint, init_action_net_bias_to_box_mid)
 
 MODEL_DIR  = os.path.join(BASE_DIR, "model",  "ppo")
 RESULT_DIR = os.path.join(BASE_DIR, "result", "ppo")
@@ -43,7 +43,7 @@ LOG_DIR    = os.path.join(BASE_DIR, "logs",   "ppo")
 # ══════════════════════════════════════════════
 def train(person_counts=None, total_timesteps=300_000,
           n_envs=None, bc_demo_steps=0, bc_s4_steps=0, bc_epochs=10, max_scenario=None,
-          ent_coef=0.05, start_scenario=1):
+          ent_coef=0.005, start_scenario=1, curriculum_threshold=0.90, curriculum_window=50):
     import torch
 
     if person_counts is None:
@@ -78,7 +78,8 @@ def train(person_counts=None, total_timesteps=300_000,
             print(f"\n{'─'*62}\n체크포인트 이어서 학습 "
                   f"({n}명 | {ckpt_steps:,} → {total_timesteps:,} steps)\n{'─'*62}")
             vec_env = make_vec_env(n_envs=n_envs, n_agents=n, max_scenario=max_scenario,
-                                   start_scenario=start_scenario)
+                                   start_scenario=start_scenario, curriculum_threshold=curriculum_threshold,
+                                   curriculum_window=curriculum_window)
             if os.path.exists(vnorm_ckpt):
                 vec_env = VecNormalize.load(vnorm_ckpt, vec_env.venv)
                 vec_env.training = True
@@ -90,7 +91,8 @@ def train(person_counts=None, total_timesteps=300_000,
             print(f"\n{'─'*62}\n커리큘럼 학습 시작 "
                   f"({n}명 기준, 이후 시나리오 인원수 자동 적용)\n{'─'*62}")
             vec_env = make_vec_env(n_envs=n_envs, n_agents=n, max_scenario=max_scenario,
-                                   start_scenario=start_scenario)
+                                   start_scenario=start_scenario, curriculum_threshold=curriculum_threshold,
+                                   curriculum_window=curriculum_window)
             model = PPO(
                 "MlpPolicy", vec_env,
                 device          = device,
@@ -106,6 +108,7 @@ def train(person_counts=None, total_timesteps=300_000,
                 policy_kwargs   = dict(net_arch=[256, 256]),
                 tensorboard_log = LOG_DIR,
             )
+            init_action_net_bias_to_box_mid(model, vec_env)
             remaining = total_timesteps
             reset_num = True
 
@@ -173,15 +176,23 @@ if __name__ == "__main__":
     parser.add_argument("--max-scenario",  type=int, default=None,
                         help="커리큘럼 진급 상한 (예: 4 → S5는 절대 학습 안 함, "
                              "OOD 일반화 테스트로 보호). 미지정 시 전체 시나리오까지 진급")
-    parser.add_argument("--ent-coef",      type=float, default=0.05,
-                        help="엔트로피 계수. Andrychowicz et al. 2020은 연속제어에서 "
-                             "엔트로피 보너스가 도움 안 된다고 보고, 기본값 0.05가 과도한 "
-                             "탐색을 유발할 수 있음(조사 결과 9-3). 감사용 실험은 0.0 권장")
+    parser.add_argument("--ent-coef",      type=float, default=0.005,
+                        help="엔트로피 계수. 0.05(과거 기본값)로 3.5M 스텝까지 끝까지 "
+                             "학습하면 log_std가 발산해 액션이 경계값에 고정되는 문제가 "
+                             "확인됨(2026-09-13, docs/hazard-aware-ablation.md 후속 분석 6). "
+                             "action_net bias 초기화와 함께 0.005로 검증됨")
     parser.add_argument("--start-scenario", type=int, default=1,
                         help="커리큘럼 진급 없이 이 시나리오부터 고정으로 학습 시작 "
                              "(예: --start-scenario 4 --max-scenario 4 → S4만으로 "
                              "처음부터 끝까지 학습, 커리큘럼 ablation용). 기본값 1은 "
                              "기존 커리큘럼 동작 그대로")
+    parser.add_argument("--curriculum-threshold", type=float, default=0.90,
+                        help="커리큘럼 승급 기준: 최근 --curriculum-window 에피소드 평균 "
+                             "생존율이 이 값 이상이면 다음 시나리오로 승급. 2026-09-13 "
+                             "재학습에서 S3->S4 승급이 3.5M 스텝 내내 한 번도 안 됨 — "
+                             "S4에서 이 기준이 너무 빡빡한지 확인하려면 낮춰서 재시도")
+    parser.add_argument("--curriculum-window", type=int, default=50,
+                        help="커리큘럼 승급 판정에 쓰는 최근 에피소드 수")
     args = parser.parse_args()
 
     if args.mode == "check":
@@ -208,6 +219,8 @@ if __name__ == "__main__":
             max_scenario   = args.max_scenario,
             ent_coef       = args.ent_coef,
             start_scenario = args.start_scenario,
+            curriculum_threshold = args.curriculum_threshold,
+            curriculum_window    = args.curriculum_window,
         )
 
     elif args.mode == "test":
