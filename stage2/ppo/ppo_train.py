@@ -106,6 +106,21 @@ def train(person_counts=None, total_timesteps=300_000,
                 policy_kwargs   = dict(net_arch=[256, 256]),
                 tensorboard_log = LOG_DIR,
             )
+            # action_net 초기 bias를 액션 박스 중간값으로 맞춘다.
+            # 기본 초기화는 raw mean_actions이 0 근처에서 시작하는데, exit_A/B_cost의
+            # 박스가 [5,50]으로 0에서 한참 떨어져 있어 raw 출력이 계속 하한(5)보다
+            # 낮은 채로 clip되고, clip된 영역에서는 그래디언트가 사실상 사라져 학습이
+            # 안 된다(2026-09-13 진단: action_causal_sweep.py + raw mean_actions 확인
+            # 결과, exit_A/B_cost가 몇 번을 재학습해도 5.0에 고정되는 원인이 이것이었음).
+            # bias를 박스 중앙에 맞춰두면 학습 시작부터 두 방향 모두에 실제 그래디언트가
+            # 생긴다.
+            action_low  = vec_env.action_space.low
+            action_high = vec_env.action_space.high
+            box_mid = (action_low + action_high) / 2.0
+            with torch.no_grad():
+                model.policy.action_net.bias.copy_(
+                    torch.as_tensor(box_mid, dtype=model.policy.action_net.bias.dtype))
+            print(f"  action_net bias 초기화 -> 박스 중간값 {box_mid}")
             remaining = total_timesteps
             reset_num = True
 
