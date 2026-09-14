@@ -67,8 +67,9 @@ def _mask_outside_building(mask):
     return result
 
 
-def load_wall_mask(image_path="image.jpg"):
-    # gridcell_extract.py와 동일한 벽 검출 로직 재사용(색 노이즈 제거 → 어두운 픽셀 → 벽)
+def _dark_pixel_mask(image_path):
+    # 색 노이즈 제거 → 어두운 픽셀 검출. 벽 후보 판정(직선 필터링 이전 단계)과
+    # 건물 외곽 판정(_mask_outside_building) 둘 다 이 촘촘한 마스크를 입력으로 쓴다.
     img = cv2.imread(image_path)
     img = cv2.resize(img, None, fx=1 / 3, fy=1 / 3, interpolation=cv2.INTER_AREA)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -91,7 +92,16 @@ def load_wall_mask(image_path="image.jpg"):
     gray_temp = cv2.cvtColor(rb_removed, cv2.COLOR_BGR2GRAY)
     rb_removed[gray_temp < 150] = 0
     gray = cv2.cvtColor(rb_removed, cv2.COLOR_BGR2GRAY)
-    black_mask = cv2.inRange(gray, 0, 130)
+    return cv2.inRange(gray, 0, 130)
+
+
+def load_wall_mask_legacy_blob(image_path="image.jpg"):
+    """2026-08-21 Phase 0 버전. 어두운 연결요소를 크기(area, bbox)로만 걸러
+    벽으로 인정한다. WALL IoU 0.634 — 화장실 픽토그램처럼 크기 조건을
+    통과하는 곡선형 아이콘을 벽으로 오탐하는 문제가 있다(2026-09-14 진단,
+    docs/stage1-extraction-accuracy.md Phase E 참고). `load_wall_mask()`가
+    이 함수를 대체했고, 이건 비교/회귀 테스트용으로만 남겨둔다."""
+    black_mask = _dark_pixel_mask(image_path)
 
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(black_mask, connectivity=8)
     clean = np.zeros_like(black_mask)
@@ -103,9 +113,54 @@ def load_wall_mask(image_path="image.jpg"):
             continue
         clean[labels == i] = 255
 
-    # Phase 0 — 정밀도 개선.
-    # 1) 건물 바깥(테두리 밖 여백)을 WALL로 채움 — 연결성 단절의 주 원인이었다(실측 확인).
     clean = _mask_outside_building(clean)
+    clean = _fill_small_holes(clean, MAX_HOLE_FILL_AREA_PX)
+    return clean
+
+
+def load_wall_mask(image_path="image.jpg", min_line_length=14, max_line_gap=6,
+                    angle_tol_deg=8.0, line_thickness=1):
+    """Hough Line Transform으로 직선 성분만 벽 후보로 인정한다(Phase E,
+    2026-09-14). 어두운 픽셀 덩어리를 크기로만 거르던 이전 방식
+    (`load_wall_mask_legacy_blob`)은 화장실 픽토그램처럼 크기 조건을
+    통과하는 곡선형 아이콘도 벽으로 오탐했다 — 실측으로 확인(원본 사진에서
+    화장실 칸막이·아이콘 구역과 오탐 좌표가 정확히 일치). 라벨링 데이터
+    없이 딥러닝 세그멘테이션(CubiCasa5K 등)을 새로 학습하는 대신, 라스터
+    도면 벡터화 문헌(Liu et al. 2017 등)이 공통으로 쓰는 "벽은 직선, 아이콘은
+    곡선/복잡한 외곽선" 전제를 적용해 축 정렬(0도/90도 ± angle_tol_deg)
+    직선만 벽으로 인정한다. 도면이 orthogonal(직교) 구조라는 전제가
+    깔려 있어, 곡선 벽이 있는 건물에는 그대로 안 맞는다.
+
+    건물 외곽 판정(_mask_outside_building)은 원래의 촘촘한 어두운-픽셀
+    마스크로 하고(선분만 남은 마스크는 너무 성겨서 외곽 컨투어가 깨짐,
+    2026-09-14 확인), 직선 필터링은 "건물 내부에서 무엇이 벽인가"를
+    거르는 데만 쓴다 — 두 역할을 분리해야 한다.
+
+    하이퍼파라미터(min_line_length=14, max_line_gap=6, angle_tol_deg=8,
+    line_thickness=1)는 이 사진 기준 그리드 서치로 찾은 값이다(WALL IoU
+    기준 최적화, docs/stage1-extraction-accuracy.md Phase E 표 참고). 다른
+    사진에 적용할 땐 셀 크기(px) 대비 min_line_length 비율을 다시 맞춰야
+    할 가능성이 높다.
+    """
+    black_mask = _dark_pixel_mask(image_path)
+
+    lines = cv2.HoughLinesP(black_mask, rho=1, theta=np.pi / 180, threshold=20,
+                             minLineLength=min_line_length, maxLineGap=max_line_gap)
+
+    line_mask = np.zeros_like(black_mask)
+    if lines is not None:
+        for seg in lines:
+            x1, y1, x2, y2 = seg.reshape(-1).tolist()
+            angle = np.degrees(np.arctan2(y2 - y1, x2 - x1)) % 180
+            near_axis = (angle <= angle_tol_deg or angle >= 180 - angle_tol_deg
+                         or abs(angle - 90) <= angle_tol_deg)
+            if near_axis:
+                cv2.line(line_mask, (x1, y1), (x2, y2), 255, thickness=line_thickness)
+
+    outside_from_dense = _mask_outside_building(black_mask)
+    building_outside = outside_from_dense & ~black_mask
+    clean = line_mask.copy()
+    clean[building_outside == 255] = 255
     # 2) 작은 홀(픽토그램·해칭 도형 등)만 채운다. 큰 닫힘 연산(이중선 벽 간격 메우기)은
     #    WALL_GAP_CLOSE_PX=29px로 시도했다가 출구 하나를 완전히 고립시키는 걸 실측으로
     #    확인해 보류함(진짜 통로 폭과 구분이 안 됨) — 상세: docs/progress.md 2026-08-21.
