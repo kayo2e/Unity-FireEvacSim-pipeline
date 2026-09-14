@@ -56,6 +56,31 @@ def bench_astar(scenario, n_agents, n_steps):
     return np.array(times) * 1000  # ms
 
 
+def bench_hazard_bfs(scenario, n_agents, n_steps):
+    """Hazard-aware BFS(astar_baseline.py, 비학습)의 스텝당 행동결정 시간.
+
+    생존율은 PPO와 거의 동급이지만(exp1_compare.py 결과), 이 함수도 Pure A*와
+    마찬가지로 생존자마다 BFS를 두 번씩(출구 A/B) 새로 돌리는 O(N) 구조라
+    N이 커지면 똑같이 선형으로 느려질 것으로 예상된다 — PPO의 O(1) 추론과
+    비용을 직접 대조하기 위한 벤치마크(2026-09-13, 승급 없는 생존율 우위
+    대신 비용 우위를 확인하려는 목적).
+    """
+    from astar_baseline import bfs_action
+
+    env = FireEvacEnv(scenario=scenario, n_agents=n_agents, hazard_aware=True)
+    env.reset()
+    times = []
+    for _ in range(n_steps):
+        t0 = time.perf_counter()
+        _ = bfs_action(env)
+        times.append(time.perf_counter() - t0)
+        obs, _, term, trunc, _ = env.step(np.array([10.0, 10.0, 2.0]))
+        if term or trunc:
+            env.reset()
+    env.close()
+    return np.array(times) * 1000  # ms
+
+
 def bench_ppo(model_dir, scenario, n_agents, n_steps):
     from stable_baselines3 import PPO
 
@@ -110,6 +135,7 @@ if __name__ == "__main__":
     parser.add_argument("--scenarios", type=int, nargs="+", default=[1, 4])
     parser.add_argument("--no-ppo",    action="store_true")
     parser.add_argument("--no-astar",  action="store_true")
+    parser.add_argument("--no-hazard-bfs", action="store_true")
     parser.add_argument("--n-agents",  type=int, default=None,
                         help="인원수 강제 지정 — 실시간 배포 가능선(N 스케일링) 측정용, "
                              "예: --n-agents 300")
@@ -132,6 +158,11 @@ if __name__ == "__main__":
             t = bench_astar(sc, n, args.steps)
             print_result("A* (astar_real)", t)
 
+        if not args.no_hazard_bfs:
+            print("  Hazard-aware BFS 측정 중...", end="\r")
+            t = bench_hazard_bfs(sc, n, args.steps)
+            print_result("Hazard-aware BFS", t)
+
         if not args.no_ppo:
             print("  PPO 측정 중...", end="\r")
             t, err = bench_ppo(ppo_dir, sc, n, args.steps)
@@ -141,6 +172,7 @@ if __name__ == "__main__":
                 print_result("PPO", t)
 
     print(f"\n{'═'*78}")
-    print("  * A*: 매 스텝 전체 인원에 대해 BFS+경로 계산")
-    print("  * PPO: 신경망 forward pass 1회")
+    print("  * A*: 매 스텝 전체 인원에 대해 BFS+경로 계산 (화재 무시, O(N))")
+    print("  * Hazard-aware BFS: 생존자마다 출구 A/B로 BFS 2회씩 재계산 (O(N))")
+    print("  * PPO: 신경망 forward pass 1회 (O(1), N 무관)")
     print(f"{'═'*78}\n")

@@ -291,3 +291,53 @@ Dijkstra 라우팅(`FireEvacEnv(hazard_aware=True)` 기본값)일 가능성이
   전면 재측정. 지금 README 표 3은 여전히 버그 수정 전 모델 기준이다.
 - 피처 공간 최적화 Task 2 3~4번(축소 피처셋 재학습)은 위 재검증들이 끝난
   뒤 재개.
+
+## 2026-09-13 (계속) — PR 리뷰·머지, 커리큘럼 승급 기준 완화, 비용 비교로 기여 재정의
+
+### 한 일
+
+**1. action_net bias 수정 PR 리뷰 후 머지.** `fix/action-space-clipping-bug`
+브랜치로 PR #17을 열고 코드 리뷰를 거쳤다. 발견된 문제 중 `ppo_train.py`
+`train()`의 `ent_coef` 기본값과 CLI `--ent-coef` 기본값이 여전히 0.05로
+남아있던 것(수정판의 결론과 모순)을 0.005로 정정했고, `action_net` bias
+초기화 로직이 `ppo_train.py`와 `train_no_curriculum_ablation.py`에 중복
+구현돼 있던 것을 `train_common.init_action_net_bias_to_box_mid()`로
+공용화했다. `stage2/logs/`를 `.gitignore`에 추가해 앞으로의 학습 로그가
+계속 커밋에 쌓이는 걸 막았다(이미 커밋된 로그는 그대로 둠). 이 과정에서
+`make_env`/`make_vec_env`에 `curriculum_threshold`/`curriculum_window`
+파라미터를 추가하고 `ppo_train.py`에 `--curriculum-threshold`/
+`--curriculum-window` CLI로 노출했다. PR 머지 후 main으로 fast-forward.
+
+**2. 커리큘럼 승급 기준 완화 실험.** 직전 재학습(후속 분석 6)도 커리큘럼이
+S3에서 멈췄던 걸 승급 기준(0.90)이 S4에서 너무 빡빡한 것으로 의심해,
+기준을 0.85로 낮추고 나머지 조건은 동일하게 유지한 채 처음부터 3.5M
+스텝을 재학습했다. 이번엔 8개 병렬 환경 전부 S4까지 승급했다. 같은 조건
+(n=30, seed=42)으로 Hazard-aware BFS와 다시 비교한 결과 S4 격차가
+-3.1%p→-1.4%p, 한 번도 학습하지 않은 S5(OOD) 격차가 -11.3%p→-7.4%p로
+함께 줄었다.
+
+**3. 비교축을 생존율에서 비용으로 전환 — 훨씬 뚜렷한 우위 확인.**
+`experiments/exp_speed.py`에 `bench_hazard_bfs()`를 추가해 Hazard-aware
+BFS의 스텝당 행동결정 시간을 N=20~500까지 재실측했다. 생존자마다 출구
+A·B 양쪽으로 BFS를 새로 도는 구조라 Pure A\*보다도 약 2배 느렸고, "실시간
+기준 100ms/스텝"을 N≈200~300 사이에서 이미 넘어섰다(Pure A\*보다 더
+이른 지점). PPO는 N=500에서도 0.5ms 수준. 생존율로는 Hazard-aware BFS를
+확실히 못 이기지만, "같은 수준의 판단을 훨씬 큰 규모까지 실시간으로
+낼 수 있다"는 비용 축에서는 명확한 우위가 나온다는 게 이번에 확인한
+핵심 재발견이다.
+
+**4. README 반영.** "추론 속도 비교(그림 5)" 표를 Hazard-aware BFS
+열을 포함해 전면 재실측치로 교체하고, "PPO 아키텍처 미검증" 문단에
+승급 기준 재검증 경과를 추가했다. `docs/hazard-aware-ablation.md`에
+후속 분석 7로 두 실험(승급 기준 완화, 비용 재실측)을 모두 기록했다.
+
+### Next
+
+- `train_no_curriculum_ablation.py`를 `curriculum_threshold=0.85` 조합으로
+  실행해 커리큘럼 유무 자체의 효과를 최신 설정 기준으로 재검증.
+- S4 외 다른 시나리오(더 많은 인원)에서도 Hazard-aware BFS의 실시간 임계점이
+  같은 패턴으로 나오는지 확인.
+- 표 3(완료 스텝, Exit Balance/Throughput, 정적 유도등 비교)을 최신 모델
+  기준으로 전면 재측정 — 아직 미착수.
+- 승급 기준 0.85 완화가 다른 시나리오 품질에 부작용이 없는지는 n=30 1회
+  비교로만 확인된 상태라 추가 반복 검증 여지가 있음.
