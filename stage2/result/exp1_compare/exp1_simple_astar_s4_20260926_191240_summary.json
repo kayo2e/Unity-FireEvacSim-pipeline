@@ -1,0 +1,36 @@
+{
+  "scenario": 4,
+  "n_episodes": 30,
+  "simple_astar": {
+    "survival_rate": {
+      "mean": 0.53,
+      "std": 0.2911,
+      "min": 0.05,
+      "max": 1.0
+    },
+    "escaped_A": {
+      "mean": 10.3333,
+      "std": 9.85,
+      "min": 1.0,
+      "max": 33.0
+    },
+    "escaped_B": {
+      "mean": 10.8667,
+      "std": 8.7549,
+      "min": 0.0,
+      "max": 34.0
+    },
+    "dead": {
+      "mean": 18.8,
+      "std": 11.6459,
+      "min": 0.0,
+      "max": 38.0
+    },
+    "steps_taken": {
+      "mean": 69.9,
+      "std": 14.1076,
+      "min": 43.0,
+      "max": 97.0
+    }
+  }
+}

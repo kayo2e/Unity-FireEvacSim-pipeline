@@ -86,11 +86,12 @@ def run_simple_astar(scenario: int, n_agents: int, n_episodes: int, base_seed: i
 
 # ── PPO 테스트 ────────────────────────────────
 def run_ppo(scenario: int, n_agents: int, n_episodes: int,
-            model_dir: str, model_cls_name: str, base_seed: int = None) -> list:
+            model_dir: str, model_cls_name: str, base_seed: int = None,
+            feature_set: str = "full") -> list:
     cfg = SCENARIO_CONFIGS[scenario]
 
     ModelCls = _load_model_cls(model_cls_name)
-    model_n, model_path, vecnorm_path = _find_model(model_dir, n_agents)
+    model_n, model_path, vecnorm_path = _find_model(model_dir, n_agents, feature_set)
     if model_path is None:
         print(f"  [경고] {model_dir} 에 모델 없음 — PPO 테스트 건너뜀")
         return []
@@ -100,7 +101,7 @@ def run_ppo(scenario: int, n_agents: int, n_episodes: int,
 
     records = []
     for ep in range(n_episodes):
-        env = FireEvacEnv(scenario=scenario, n_agents=n_agents)
+        env = FireEvacEnv(scenario=scenario, n_agents=n_agents, feature_set=feature_set)
         vec = DummyVecEnv([lambda: env])
         if os.path.exists(vecnorm_path):
             vec = VecNormalize.load(vecnorm_path, vec)
@@ -177,9 +178,13 @@ def _load_model_cls(name: str):
     return PPO
 
 
-def _find_model(model_dir: str, n_agents: int):
-    """n_agents에 가장 가까운 호환 모델 탐색. 구버전 obs 차원 불일치 모델 자동 제외."""
+def _find_model(model_dir: str, n_agents: int, feature_set: str = "full"):
+    """n_agents에 가장 가까운 호환 모델 탐색. feature_set과 obs 차원이 안 맞는
+    모델은 자동 제외한다(예: --feature-set reduced인데 15차원짜리 구버전
+    fire_evac_model_20ppl.zip만 남아있으면 그건 후보에서 빠짐 — 조용히
+    잘못된 모델로 폴백하는 것보다 못 찾는 게 낫다)."""
     from stable_baselines3 import PPO as _PPO
+    expected_dim = 15 if feature_set == "full" else 4
     if not os.path.isdir(model_dir):
         return None, None, None
     candidates = []
@@ -191,10 +196,10 @@ def _find_model(model_dir: str, n_agents: int):
         except ValueError:
             continue
         path = os.path.join(model_dir, f"fire_evac_model_{n}ppl")
-        # obs 차원 호환 확인 (구버전 모델 제외)
+        # obs 차원 호환 확인 (feature_set과 안 맞는 모델 제외)
         try:
             m = _PPO.load(path)
-            if m.observation_space.shape == (15,):
+            if m.observation_space.shape == (expected_dim,):
                 candidates.append(n)
         except Exception:
             pass
@@ -306,6 +311,9 @@ if __name__ == "__main__":
     parser.add_argument("--include-simple-astar", action="store_true",
                         help="Simple A*(astar_simple_baseline.py, 화재 무시)도 같은 시드로 "
                              "돌려서 별도 저장")
+    parser.add_argument("--feature-set", choices=["full", "reduced"], default="full",
+                        help="PPO 모델이 기대하는 관측 차원. full=F1~F15(기본) | "
+                             "reduced=F1,F2,F14,F15. 모델 체크포인트와 반드시 일치해야 함")
     args = parser.parse_args()
 
     all_astar, all_ppo, all_static = {}, {}, {}
@@ -323,7 +331,8 @@ if __name__ == "__main__":
         all_astar[sc] = astar_recs
 
         print(f"\n[{args.model_cls.upper()} 모델]")
-        ppo_recs = run_ppo(sc, n, args.episodes, args.model_dir, args.model_cls, args.seed)
+        ppo_recs = run_ppo(sc, n, args.episodes, args.model_dir, args.model_cls, args.seed,
+                           feature_set=args.feature_set)
         all_ppo[sc] = ppo_recs
 
         static_recs = []
@@ -336,11 +345,17 @@ if __name__ == "__main__":
         if args.include_hazard_astar:
             print("\n[Hazard-aware A* 베이스라인]")
             hazard_astar_recs = run_hazard_astar(sc, n, args.episodes, args.seed)
+            sr = np.array([r["survival_rate"] for r in hazard_astar_recs])
+            ppo_sr = np.array([r["survival_rate"] for r in ppo_recs])
+            print(f"  Hazard-aware A* 생존율: {sr.mean():.1%} ± {sr.std():.1%}  "
+                  f"(PPO 대비 {(ppo_sr.mean()-sr.mean())*100:+.1f}%p)")
 
         simple_astar_recs = []
         if args.include_simple_astar:
             print("\n[Simple A* 베이스라인]")
             simple_astar_recs = run_simple_astar(sc, n, args.episodes, args.seed)
+            sr = np.array([r["survival_rate"] for r in simple_astar_recs])
+            print(f"  Simple A* 생존율: {sr.mean():.1%} ± {sr.std():.1%}")
 
         _print_comparison(sc, astar_recs, ppo_recs, args.model_cls)
         if not args.no_save:

@@ -19,18 +19,30 @@ from env_core import FireEvacEnv, SCENARIO_CONFIGS
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 
-def _find_model(model_dir, n_agents):
+def _find_model(model_dir, n_agents, feature_set="full"):
+    """feature_set과 obs 차원이 안 맞는 모델은 제외한다(exp1_compare.py의
+    _find_model과 동일한 이유 — 조용히 잘못된 차원의 모델로 폴백하는 걸 방지)."""
+    from stable_baselines3 import PPO as _PPO
+    expected_dim = 15 if feature_set == "full" else 4
     single = os.path.join(model_dir, "fire_evac_model.zip")
     if os.path.exists(single):
-        vecnorm = single.replace(".zip", "_vecnorm.pkl")
-        return single, vecnorm
+        try:
+            if _PPO.load(single).observation_space.shape == (expected_dim,):
+                return single, single.replace(".zip", "_vecnorm.pkl")
+        except Exception:
+            pass
     candidates = []
     for f in (os.listdir(model_dir) if os.path.isdir(model_dir) else []):
         if f.endswith(".zip") and "ppl" in f and "best" not in f:
             try:
                 n = int(f.replace("fire_evac_model_", "").replace("ppl.zip", ""))
-                candidates.append(n)
             except ValueError:
+                continue
+            path = os.path.join(model_dir, f"fire_evac_model_{n}ppl.zip")
+            try:
+                if _PPO.load(path).observation_space.shape == (expected_dim,):
+                    candidates.append(n)
+            except Exception:
                 pass
     if not candidates:
         return None, None
@@ -81,15 +93,15 @@ def bench_hazard_bfs(scenario, n_agents, n_steps):
     return np.array(times) * 1000  # ms
 
 
-def bench_ppo(model_dir, scenario, n_agents, n_steps):
+def bench_ppo(model_dir, scenario, n_agents, n_steps, feature_set="full"):
     from stable_baselines3 import PPO
 
-    mpath, vpath = _find_model(model_dir, n_agents)
+    mpath, vpath = _find_model(model_dir, n_agents, feature_set)
     if mpath is None or not os.path.exists(mpath):
         return None, f"모델 없음: {model_dir}"
 
     model = PPO.load(mpath)
-    env = FireEvacEnv(scenario=scenario, n_agents=n_agents)
+    env = FireEvacEnv(scenario=scenario, n_agents=n_agents, feature_set=feature_set)
     vec = DummyVecEnv([lambda: env])
     if vpath and os.path.exists(vpath):
         vec = VecNormalize.load(vpath, vec)
@@ -139,6 +151,9 @@ if __name__ == "__main__":
     parser.add_argument("--n-agents",  type=int, default=None,
                         help="인원수 강제 지정 — 실시간 배포 가능선(N 스케일링) 측정용, "
                              "예: --n-agents 300")
+    parser.add_argument("--feature-set", choices=["full", "reduced"], default="full",
+                        help="PPO 모델이 기대하는 관측 차원. full=F1~F15(기본) | "
+                             "reduced=F1,F2,F14,F15")
     args = parser.parse_args()
 
     ppo_dir = os.path.join(BASE, "model", "ppo")
@@ -165,7 +180,7 @@ if __name__ == "__main__":
 
         if not args.no_ppo:
             print("  PPO 측정 중...", end="\r")
-            t, err = bench_ppo(ppo_dir, sc, n, args.steps)
+            t, err = bench_ppo(ppo_dir, sc, n, args.steps, feature_set=args.feature_set)
             if err:
                 print(f"  {'PPO':<22} {err}")
             else:

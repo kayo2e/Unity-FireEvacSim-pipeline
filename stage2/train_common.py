@@ -57,7 +57,7 @@ def find_latest_checkpoint(ckpt_dir: str, name_prefix: str):
 # ══════════════════════════════════════════════
 class EvacCurriculumWrapper(gym.Wrapper):
     def __init__(self, n_agents: int = None, threshold: float = 0.90, window: int = 50,
-                 max_scenario: int = None, start_scenario: int = 1):
+                 max_scenario: int = None, start_scenario: int = 1, feature_set: str = "full"):
         # start_scenario: 커리큘럼 진급 없이 특정 시나리오에서 바로 시작하고 싶을 때
         # 쓴다(예: start_scenario=max_scenario로 두면 승급 조건이 항상 거짓이 되어
         # 사실상 커리큘럼을 끄고 그 시나리오만으로 처음부터 끝까지 학습한다). 커리큘럼
@@ -67,9 +67,10 @@ class EvacCurriculumWrapper(gym.Wrapper):
         # (SCENARIO_CONFIGS 전체). S5(EXIT B 위협)처럼 의도적으로 학습에서 제외해
         # OOD 일반화 테스트로 남겨두려는 시나리오가 있으면 반드시 지정해야 오염을 막는다.
         self.max_scenario = max_scenario if max_scenario is not None else len(SCENARIO_CONFIGS)
+        self.feature_set = feature_set
         start_n = SCENARIO_CONFIGS[start_scenario]["n_agents"] if n_agents is None else n_agents
         self.n_agents = start_n
-        env = FireEvacEnv(scenario=start_scenario, n_agents=start_n)
+        env = FireEvacEnv(scenario=start_scenario, n_agents=start_n, feature_set=feature_set)
         super().__init__(env)
         self.threshold = threshold
         self.window    = window
@@ -88,7 +89,8 @@ class EvacCurriculumWrapper(gym.Wrapper):
                 self.current_scenario += 1
                 cfg_n = SCENARIO_CONFIGS[self.current_scenario]["n_agents"]
                 self.env = FireEvacEnv(
-                    scenario=self.current_scenario, n_agents=cfg_n)
+                    scenario=self.current_scenario, n_agents=cfg_n,
+                    feature_set=self.feature_set)
                 self.recent = []
                 print(f"\n[커리큘럼] ★ {self.current_scenario}단계 승급! "
                       f"({self.env.cfg['name']}) | 생존율 {avg:.0%}")
@@ -217,21 +219,24 @@ class EvacTrainCallback(BaseCallback):
 # 환경 팩토리
 # ══════════════════════════════════════════════
 def make_env(seed: int, n_agents: int = None, max_scenario: int = None, start_scenario: int = 1,
-             curriculum_threshold: float = 0.90, curriculum_window: int = 50):
+             curriculum_threshold: float = 0.90, curriculum_window: int = 50,
+             feature_set: str = "full"):
     def _init():
         env = EvacCurriculumWrapper(n_agents=n_agents, max_scenario=max_scenario,
                                      start_scenario=start_scenario,
-                                     threshold=curriculum_threshold, window=curriculum_window)
+                                     threshold=curriculum_threshold, window=curriculum_window,
+                                     feature_set=feature_set)
         env.reset(seed=seed)
         return env
     return _init
 
 
 def make_vec_env(n_envs: int, n_agents: int = None, max_scenario: int = None, start_scenario: int = 1,
-                  curriculum_threshold: float = 0.90, curriculum_window: int = 50):
+                  curriculum_threshold: float = 0.90, curriculum_window: int = 50,
+                  feature_set: str = "full"):
     env_fns = [make_env(seed=i, n_agents=n_agents, max_scenario=max_scenario,
                          start_scenario=start_scenario, curriculum_threshold=curriculum_threshold,
-                         curriculum_window=curriculum_window) for i in range(n_envs)]
+                         curriculum_window=curriculum_window, feature_set=feature_set) for i in range(n_envs)]
     raw = (DummyVecEnv(env_fns) if platform.system() == "Windows"
            else SubprocVecEnv(env_fns))
     return VecNormalize(raw, norm_obs=True, norm_reward=False, clip_obs=10.0)
@@ -265,7 +270,16 @@ def init_action_net_bias_to_box_mid(model, vec_env) -> None:
 
 
 def collect_astar_demos(n_agents: int = None, n_envs_demo: int = 4,
-                        n_steps: int = 3000, s4_steps: int = 2000) -> tuple:
+                        n_steps: int = 3000, s4_steps: int = 2000,
+                        feature_set: str = "full") -> tuple:
+    # rule_based_action()이 obs[0],obs[1],obs[3],obs[4](F1,F2,F4,F5)를 "full"
+    # 15차원 기준 고정 인덱스로 읽는다. feature_set="reduced"(F1,F2,F14,F15)는
+    # 인덱스 3,4가 F15,(범위 밖)로 어긋나 데모가 조용히 오염되므로 막는다.
+    if feature_set != "full":
+        raise NotImplementedError(
+            "collect_astar_demos()/rule_based_action()은 15차원(full) 관측 "
+            "인덱스를 가정한다. feature_set='reduced'로 BC 사전학습을 쓰려면 "
+            "rule_based_action()을 축소 인덱스 기준으로 먼저 고쳐야 함.")
     env_fns    = [make_env(seed=200 + i) for i in range(n_envs_demo)]
     demo_raw   = DummyVecEnv(env_fns)
     demo_vnorm = VecNormalize(demo_raw, norm_obs=True, norm_reward=False, clip_obs=10.0)
@@ -348,7 +362,8 @@ def _stats(vals: list) -> dict:
 def test_fire_evac(ModelCls, model_dir: str, result_dir: str,
                    n_agents: int = 10, scenario: int = 1,
                    n_episodes: int = 30, save_results: bool = True,
-                   render: bool = False, model_n: int = None):
+                   render: bool = False, model_n: int = None,
+                   feature_set: str = "full"):
     import csv
     import json
     from datetime import datetime
@@ -367,7 +382,7 @@ def test_fire_evac(ModelCls, model_dir: str, result_dir: str,
 
     render_mode = "human" if render else None
     env     = FireEvacEnv(scenario=scenario, n_agents=n_agents,
-                          render_mode=render_mode)
+                          render_mode=render_mode, feature_set=feature_set)
     vec_env = DummyVecEnv([lambda: env])
     if os.path.exists(vecnorm_path):
         vec_env = VecNormalize.load(vecnorm_path, vec_env)

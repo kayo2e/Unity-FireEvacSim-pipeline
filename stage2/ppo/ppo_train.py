@@ -43,7 +43,8 @@ LOG_DIR    = os.path.join(BASE_DIR, "logs",   "ppo")
 # ══════════════════════════════════════════════
 def train(person_counts=None, total_timesteps=300_000,
           n_envs=None, bc_demo_steps=0, bc_s4_steps=0, bc_epochs=10, max_scenario=None,
-          ent_coef=0.005, start_scenario=1, curriculum_threshold=0.90, curriculum_window=50):
+          ent_coef=0.005, start_scenario=1, curriculum_threshold=0.90, curriculum_window=50,
+          feature_set="full"):
     import torch
 
     if person_counts is None:
@@ -54,15 +55,16 @@ def train(person_counts=None, total_timesteps=300_000,
         n_envs = max(32, min(n_cpu, 16))
 
     device  = "cuda" if torch.cuda.is_available() else "cpu"
-    obs_dim = FireEvacEnv(scenario=1).observation_space.shape[0]
+    obs_dim = FireEvacEnv(scenario=1, feature_set=feature_set).observation_space.shape[0]
     os.makedirs(MODEL_DIR, exist_ok=True)
 
+    feature_label = "F1~F15" if feature_set == "full" else "F1,F2,F14,F15"
     print("=" * 62)
     print("화재대피유도시스템 — PPO 학습")
     print(f"인원수    : {person_counts}명")
     print(f"총 스텝   : {total_timesteps:,} / 모델")
     print(f"병렬 환경 : {n_envs}개")
-    print(f"관측 차원 : {obs_dim} (F1~F15)")
+    print(f"관측 차원 : {obs_dim} ({feature_label})")
     print(f"Policy    : MlpPolicy | net_arch=[256,256]")
     print(f"디바이스  : {device}")
     print(f"모델 저장 : {MODEL_DIR}")
@@ -79,7 +81,7 @@ def train(person_counts=None, total_timesteps=300_000,
                   f"({n}명 | {ckpt_steps:,} → {total_timesteps:,} steps)\n{'─'*62}")
             vec_env = make_vec_env(n_envs=n_envs, n_agents=n, max_scenario=max_scenario,
                                    start_scenario=start_scenario, curriculum_threshold=curriculum_threshold,
-                                   curriculum_window=curriculum_window)
+                                   curriculum_window=curriculum_window, feature_set=feature_set)
             if os.path.exists(vnorm_ckpt):
                 vec_env = VecNormalize.load(vnorm_ckpt, vec_env.venv)
                 vec_env.training = True
@@ -92,7 +94,7 @@ def train(person_counts=None, total_timesteps=300_000,
                   f"({n}명 기준, 이후 시나리오 인원수 자동 적용)\n{'─'*62}")
             vec_env = make_vec_env(n_envs=n_envs, n_agents=n, max_scenario=max_scenario,
                                    start_scenario=start_scenario, curriculum_threshold=curriculum_threshold,
-                                   curriculum_window=curriculum_window)
+                                   curriculum_window=curriculum_window, feature_set=feature_set)
             model = PPO(
                 "MlpPolicy", vec_env,
                 device          = device,
@@ -116,7 +118,7 @@ def train(person_counts=None, total_timesteps=300_000,
             print(f"\n[BC 사전학습] 데모 수집 중...")
             obs_demo, act_demo = collect_astar_demos(
                 n_agents=n, n_envs_demo=4,
-                n_steps=bc_demo_steps, s4_steps=bc_s4_steps)
+                n_steps=bc_demo_steps, s4_steps=bc_s4_steps, feature_set=feature_set)
             pretrain_bc(model, obs_demo, act_demo, n_epochs=bc_epochs)
 
         ckpt_cb = CheckpointCallback(
@@ -193,11 +195,16 @@ if __name__ == "__main__":
                              "S4에서 이 기준이 너무 빡빡한지 확인하려면 낮춰서 재시도")
     parser.add_argument("--curriculum-window", type=int, default=50,
                         help="커리큘럼 승급 판정에 쓰는 최근 에피소드 수")
+    parser.add_argument("--feature-set", choices=["full", "reduced"], default="full",
+                        help="full=F1~F15(기존, 기본값) | reduced=F1,F2,F14,F15만"
+                             "(Task 2 4번, docs/feature-space-optimization-plan.md 참고). "
+                             "주의: 기본 저장 경로(model/ppo/fire_evac_model_Nppl)를 그대로 "
+                             "쓰면 기존 15차원 프로덕션 모델을 덮어쓴다 — 먼저 백업할 것")
     args = parser.parse_args()
 
     if args.mode == "check":
         verify_connectivity()
-        env = FireEvacEnv(scenario=1, n_agents=10)
+        env = FireEvacEnv(scenario=1, n_agents=10, feature_set=args.feature_set)
         check_env(env)
         print(f"관측 크기: {env.observation_space.shape} | 유도등: {env.n_lights}개")
         print("환경 검증 완료!")
@@ -221,6 +228,7 @@ if __name__ == "__main__":
             start_scenario = args.start_scenario,
             curriculum_threshold = args.curriculum_threshold,
             curriculum_window    = args.curriculum_window,
+            feature_set          = args.feature_set,
         )
 
     elif args.mode == "test":
@@ -238,6 +246,7 @@ if __name__ == "__main__":
                 save_results = not args.no_save,
                 render       = args.render,
                 model_n      = args.model_n,
+                feature_set  = args.feature_set,
             )
             all_summaries[sc] = summary
 

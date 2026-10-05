@@ -44,6 +44,18 @@ DENSITY_SLOW_MAX   = 0.80 # 최대 속도 감소율 (Fruin, 1971)
 PANIC_FIRE_DIST    = 25.0 # 이 거리 이내 화재 시 공황 발생 (셀 단위)
 PANIC_RANDOM_MAX   = 0.40 # 공황 최대치일 때 랜덤 이동 확률
 
+# 축소 피처셋(feature_set="reduced")이 F1~F15 중 유지하는 인덱스.
+# 근거: docs/feature-space-optimization-plan.md "최종 재검증 결과"
+# (2026-09-16 그룹/ALL_BLIND ablation).
+FULL_FEATURE_NAMES = [
+    "F1_exitA_threat", "F2_exitB_threat", "F3_exitA_pref", "F4_escaped_ratio",
+    "F5_dead_ratio", "F6_time_ratio", "F7_exitA_congestion", "F8_exitB_congestion",
+    "F9_panic", "F10_exitA_dist", "F11_exitB_dist", "F12_fire_row", "F13_fire_col",
+    "F14_exitA_delta", "F15_exitB_delta",
+]
+REDUCED_FEATURE_INDICES = [0, 1, 13, 14]  # F1, F2, F14, F15
+REDUCED_FEATURE_NAMES   = [FULL_FEATURE_NAMES[i] for i in REDUCED_FEATURE_INDICES]
+
 
 # ══════════════════════════════════════════════
 # BASE_GRID: HALL=0, WALL=1, EXIT=2, ROOM=3
@@ -251,8 +263,19 @@ class FireEvacEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
 
     def __init__(self, scenario: int = 1, n_agents: int = 10,
-                 render_mode: Optional[str] = None, hazard_aware: bool = True):
+                 render_mode: Optional[str] = None, hazard_aware: bool = True,
+                 feature_set: str = "full"):
         super().__init__()
+        # feature_set: "full"(기본, F1~F15 15차원, 기존 체크포인트/평가
+        # 스크립트와 하위 호환) 또는 "reduced"(F1,F2,F14,F15만 4차원).
+        # 2026-09-16 그룹/ALL_BLIND ablation 재검증(docs/feature-space-
+        # optimization-plan.md "최종 재검증 결과" 절)에서 CROWD·PROGRESS
+        # 그룹은 통째로 가려도 낙폭이 ±1.6%p 이내였고, HAZARD 그룹 안에서도
+        # F12/F13은 F1/F2와 상관관계(r=-0.85~-0.87)로 중복이 확인돼 제외.
+        # F14/F15는 F1/F2와 독립(|r|<0.06)이라 유지.
+        if feature_set not in ("full", "reduced"):
+            raise ValueError(f"feature_set은 'full' 또는 'reduced'여야 함: {feature_set}")
+        self.feature_set = feature_set
         self.scenario    = scenario
         self.cfg         = SCENARIO_CONFIGS[scenario]
         self.n_agents    = n_agents
@@ -273,9 +296,11 @@ class FireEvacEnv(gym.Env):
         self.n_lights  = len(self.light_cells)
         self.light_idx = {cell: i for i, cell in enumerate(self.light_cells)}
 
-        # 관측: 스칼라 피처 15개 (F1~F15) — 그리드 크기 독립, Unity 이식 가능
+        # 관측: 스칼라 피처 (F1~F15, 또는 축소판 F1/F2/F14/F15) — 그리드 크기
+        # 독립, Unity 이식 가능
+        obs_dim = 15 if feature_set == "full" else len(REDUCED_FEATURE_INDICES)
         self.observation_space = spaces.Box(
-            low=0.0, high=1.0, shape=(15,), dtype=np.float32
+            low=0.0, high=1.0, shape=(obs_dim,), dtype=np.float32
         )
         self.action_space = spaces.Box(
             low=np.array( [5.0,  5.0,  0.5]),
@@ -822,10 +847,13 @@ class FireEvacEnv(gym.Env):
         self._prev_f1 = f1
         self._prev_f2 = f2
 
-        return np.array(
+        full = np.array(
             [f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15],
             dtype=np.float32
         )
+        if self.feature_set == "full":
+            return full
+        return full[REDUCED_FEATURE_INDICES]
 
     def _get_info(self):
         return {
