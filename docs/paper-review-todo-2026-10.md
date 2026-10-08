@@ -123,6 +123,9 @@ S3은 "유의하지 않음"만 쓰는 것보다 CI를 함께 쓰는 편이 강�
 (S4, 생존율 중앙값 에피소드, seed 70). 생성:
 `python plot_action_timeseries.py --scenario 4 --episode 29`
 
+허용 범위 전체를 y축으로 쓴 판: `action_timeseries_s4_ep29_fullrange.png`
+(`--full-range` 옵션). 정책이 범위의 극히 일부만 쓴다는 점이 바로 보인다.
+
 관찰:
 
 - **방향은 맞다.** 두 출구의 비용 차이(cA−cB)와 안전도 차이(F1−F2)의
