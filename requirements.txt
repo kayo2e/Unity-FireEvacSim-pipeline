@@ -5,3 +5,4 @@ stable-baselines3
 tensorboard
 torch
 numpy
+scipy
